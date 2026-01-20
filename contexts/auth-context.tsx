@@ -28,9 +28,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const SUPABASE_URL = "https://fpbyreqfjdlsgmzvknuq.supabase.co"
+const SUPABASE_URL = "https://nwmmqyiqdhybcfmnimav.supabase.co"
 const ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwYnlyZXFmamRsc2dtenZrbnVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3OTEwMTMsImV4cCI6MjA3NjM2NzAxM30.3AyTahoVB4mUzOnN74PbC7DiT7TbYzSlGOV_RYhtYR4"
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53bW1xeWlxZGh5YmNmbW5pbWF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5MTk1NTAsImV4cCI6MjA4NDQ5NTU1MH0.P7Co0cHmL-3osjUPy0RA1o09AKrkQEmLHG4FOY58_cY"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
