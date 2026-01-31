@@ -38,6 +38,11 @@ export function LoginForm() {
   const isUserNotFoundError = error.toLowerCase().includes("doesn't exist") || 
                                error.toLowerCase().includes("does not exist") ||
                                error.toLowerCase().includes("no user found")
+  
+  // Check if it's a network/connection error
+  const isNetworkError = error.toLowerCase().includes("cannot connect") ||
+                         error.toLowerCase().includes("failed to connect") ||
+                         error.toLowerCase().includes("backend may be down")
 
   return (
     <Card className="border-2 shadow-2xl backdrop-blur-sm bg-card/95">
@@ -66,6 +71,16 @@ export function LoginForm() {
                   <Link href="/dashboard/Signup" className="text-sm text-primary hover:underline font-medium">
                     → Create a new account here
                   </Link>
+                </div>
+              )}
+              {isNetworkError && (
+                <div className="pt-2 border-t border-destructive/20">
+                  <p className="text-sm text-muted-foreground">
+                    💡 You can use the demo account while the server is unavailable:
+                  </p>
+                  <p className="text-sm font-mono bg-muted px-2 py-1 rounded mt-1">
+                    andrew.lee@demo.com
+                  </p>
                 </div>
               )}
             </div>

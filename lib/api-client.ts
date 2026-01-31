@@ -41,23 +41,34 @@ export class ApiClient {
    * Make a POST request
    */
   async post<T>(endpoint: string, data?: any): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
-      const apiError: any = new Error(error.error || error.message || error.detail || `API Error: ${response.status}`);
-      apiError.status = response.status;
-      apiError.statusText = response.statusText;
-      throw apiError;
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: response.statusText }));
+        const apiError: any = new Error(error.error || error.message || error.detail || `API Error: ${response.status}`);
+        apiError.status = response.status;
+        apiError.statusText = response.statusText;
+        throw apiError;
+      }
+
+      return response.json();
+    } catch (error: any) {
+      // If it's already an API error with status, re-throw it
+      if (error.status) {
+        throw error;
+      }
+      // Otherwise it's a network error (fetch failed)
+      const networkError: any = new Error(`Failed to connect to backend at ${this.baseUrl}. Please check your connection.`);
+      networkError.name = 'NetworkError';
+      throw networkError;
     }
-
-    return response.json();
   }
 
   /**

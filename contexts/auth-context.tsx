@@ -102,8 +102,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error("Login error:", error)
       
-      // Check if user doesn't exist (404 or specific error messages)
+      // Check for network/connection errors (Failed to fetch, network error, etc.)
       const errorMessage = error.message?.toLowerCase() || ''
+      if (errorMessage.includes('failed to fetch') || 
+          errorMessage.includes('network') || 
+          errorMessage.includes('fetch') ||
+          errorMessage.includes('connection') ||
+          error.name === 'TypeError') {
+        throw new Error("Cannot connect to server. The backend may be down or your internet connection is unavailable. Please try again later or use the demo account (andrew.lee@demo.com).")
+      }
+      
+      // Check if user doesn't exist (404 or specific error messages)
       if (error.status === 404 || errorMessage.includes('user not found') || errorMessage.includes('does not exist') || errorMessage.includes('no user found')) {
         throw new Error("This account doesn't exist. Please check your email or register for a new account.")
       }
