@@ -70,8 +70,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true)
       
-      // Check for demo user credentials
-      if (email.toLowerCase() === "andrew.lee@demo.com" || email.toLowerCase() === "demo@demo.com") {
+      // Check for demo user credentials - only specific demo email
+      if (email.toLowerCase() === "andrew.lee@demo.com") {
         const userData = { ...DEMO_USER, email }
         setUser(userData)
         localStorage.setItem("user", JSON.stringify(userData))
@@ -79,42 +79,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
       
-      // Try backend authentication
-      try {
-        const response = await apiClient.post<{ user: User; token?: string }>("/auth/login", {
-          email,
-          password,
-        })
-        
-        const userData = response.user
-        setUser(userData)
-        localStorage.setItem("user", JSON.stringify(userData))
-        
-        if (response.token) {
-          localStorage.setItem("authToken", response.token)
-        }
+      // All other users must authenticate with the backend
+      const response = await apiClient.post<{ user: User; token?: string }>("/auth/login", {
+        email,
+        password,
+      })
+      
+      const userData = response.user
+      setUser(userData)
+      localStorage.setItem("user", JSON.stringify(userData))
+      
+      if (response.token) {
+        localStorage.setItem("authToken", response.token)
+      }
 
-        // Redirect based on whether user has selected level
-        if (!userData.level) {
-          router.push("/select-level")
-        } else {
-          router.push("/dashboard")
-        }
-      } catch (backendError: any) {
-        // If backend is unavailable, check if we should allow demo access
-        if (backendError.message?.includes("fetch") || backendError.message?.includes("network")) {
-          console.warn("Backend unavailable, using demo mode")
-          const userData = { ...DEMO_USER, email }
-          setUser(userData)
-          localStorage.setItem("user", JSON.stringify(userData))
-          router.push("/select-level")
-          return
-        }
-        throw backendError
+      // Redirect based on whether user has selected level
+      if (!userData.level) {
+        router.push("/select-level")
+      } else {
+        router.push("/dashboard")
       }
     } catch (error: any) {
       console.error("Login error:", error)
-      throw new Error(error.message || "Invalid email or password")
+      // Only show authentication error - no fallback to demo mode
+      throw new Error(error.message || "Invalid email or password. Please check your credentials.")
     } finally {
       setIsLoading(false)
     }
