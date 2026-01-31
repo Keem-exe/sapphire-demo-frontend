@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load user from localStorage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem("user")
-    if (storedUser) {
+    if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
       try {
         const parsedUser = JSON.parse(storedUser)
         const learningStyle = localStorage.getItem("learningStyle")
@@ -86,17 +86,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       // All other users must authenticate with the backend
-      const response = await apiClient.post<{ user: User; token?: string }>("/api/auth/login", {
+      const response = await apiClient.post<{ success: boolean; data: { user: User; token: string } }>("/api/auth/login", {
         email,
         password,
       })
       
-      const userData = response.user
+      console.log("Backend response:", response)
+      
+      // Backend returns {success: true, data: {user: {...}, token: "..."}}
+      const userData = response.data?.user || response.user || response as any as User
+      const token = response.data?.token || response.token
+      
+      if (!userData || !userData.email) {
+        console.error("Invalid user data:", userData, "Full response:", response)
+        throw new Error("Invalid response from server. Please check the backend is configured correctly.")
+      }
+      
       setUser(userData)
       localStorage.setItem("user", JSON.stringify(userData))
       
-      if (response.token) {
-        localStorage.setItem("authToken", response.token)
+      if (token) {
+        localStorage.setItem("authToken", token)
       }
 
       // Redirect based on whether user has selected level
