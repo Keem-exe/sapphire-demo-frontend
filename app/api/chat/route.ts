@@ -74,7 +74,7 @@ Answer requirements:
 
 `
 
-    const model = getTextModel("gemini-2.5-flash")
+    const model = getTextModel("chat") // Use gemini-3-flash for chat
     console.log("⚙️ Using model:", model.model)
 
     // ✅ New SDK format (v1)

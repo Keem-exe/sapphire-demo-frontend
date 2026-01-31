@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getModelForPurpose } from "@/lib/ai/models";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: getModelForPurpose('quiz'), // Use gemini-3-flash for quiz generation
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 4000,

@@ -1,26 +1,27 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
+import { getModelForPurpose, type ModelPurpose } from "./models";
 
 const API_KEY = process.env.GOOGLE_GEMINI_API_KEY || "";
 if (!API_KEY) console.warn("⚠️ GOOGLE_GEMINI_API_KEY is not set");
 
-
 const genAI = new GoogleGenerativeAI(API_KEY);
 
+// Default to Gemini 3 Flash to avoid 2.5 rate limits
+export const DEFAULT_MODEL = "gemini-3-flash";
 
-export const DEFAULT_MODEL = "gemini-2.5-flash"; // ✅ lock to Flash 2.5
-
-
-export function getTextModel(model = DEFAULT_MODEL) {
-return genAI.getGenerativeModel({
-model,
-generationConfig: {
-temperature: 0.9,
-topK: 40,
-topP: 0.95,
-maxOutputTokens: 2048,
-},
-});
+export function getTextModel(modelOrPurpose: string | ModelPurpose = DEFAULT_MODEL) {
+  // If it's a purpose, get the recommended model
+  const model = modelOrPurpose.includes('-') ? modelOrPurpose : getModelForPurpose(modelOrPurpose as ModelPurpose);
+  
+  return genAI.getGenerativeModel({
+    model,
+    generationConfig: {
+      temperature: 0.9,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 2048,
+    },
+  });
 }
 
 /**
