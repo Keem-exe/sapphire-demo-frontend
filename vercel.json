@@ -2,19 +2,5 @@
   "buildCommand": "pnpm run build",
   "devCommand": "pnpm run dev",
   "installCommand": "pnpm install --frozen-lockfile",
-  "framework": "nextjs",
-  "env": {
-    "NEXT_PUBLIC_BACKEND_URL": {
-      "description": "URL of the deployed backend API",
-      "required": true
-    },
-    "GOOGLE_GEMINI_API_KEY": {
-      "description": "Google Gemini API key for AI features",
-      "required": false
-    },
-    "YOUTUBE_API_KEY": {
-      "description": "YouTube Data API v3 key for Shorts",
-      "required": false
-    }
-  }
+  "framework": "nextjs"
 }
