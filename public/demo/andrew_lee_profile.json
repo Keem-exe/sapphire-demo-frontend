@@ -1,0 +1,22 @@
+{
+  "student_id": "andrew_lee_001",
+  "name": "Andrew Lee",
+  "grade_level": "Form 4 (CSEC track)",
+  "subjects": ["Mathematics", "English A", "Integrated Science"],
+  "baseline_learning_style": {
+    "primary": "visual + practice-first",
+    "secondary": "short explanations + worked examples",
+    "avoid": ["long text-only lectures", "too many concepts at once"],
+    "attention_span_minutes": 18,
+    "best_study_window": "7:30pm–9:00pm",
+    "motivation_triggers": ["streaks", "clear goals", "instant feedback"],
+    "confidence_pattern": "starts confident, drops after 2 consecutive errors"
+  },
+  "starting_assumptions": {
+    "math": {
+      "strengths": ["basic algebra manipulation"],
+      "weaknesses": ["word problems", "fractions under pressure"],
+      "test_anxiety": "moderate"
+    }
+  }
+}

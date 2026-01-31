@@ -4,6 +4,7 @@ import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
+import { seedDemoUserData } from "@/lib/services/seed-demo-data"
 
 interface User {
   user_id: number
@@ -75,12 +76,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = { ...DEMO_USER, email }
         setUser(userData)
         localStorage.setItem("user", JSON.stringify(userData))
+        
+        // Seed demo data for Andrew Lee if not already seeded
+        // TODO: Fix type mismatches in seed-demo-data.ts
+        // seedDemoUserData()
+        
         router.push("/select-level")
         return
       }
       
       // All other users must authenticate with the backend
-      const response = await apiClient.post<{ user: User; token?: string }>("/auth/login", {
+      const response = await apiClient.post<{ user: User; token?: string }>("/api/auth/login", {
         email,
         password,
       })
@@ -102,11 +108,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error("Login error:", error)
       
-      // Check for network/connection errors (Failed to fetch, network error, etc.)
+      // Check for backend connection errors or 404 (backend not running)
       const errorMessage = error.message?.toLowerCase() || ''
-      if (errorMessage.includes('failed to fetch') || 
+      const is404 = error.status === 404
+      const isNetworkError = errorMessage.includes('failed to fetch') || 
           errorMessage.includes('network') || 
-          errorMessage.includes('fetch') ||
+          errorMessage.includes('fetch')
+      
+      if (is404 || isNetworkError ||
           errorMessage.includes('connection') ||
           error.name === 'TypeError') {
         throw new Error("Cannot connect to server. The backend may be down or your internet connection is unavailable. Please try again later or use the demo account (andrew.lee@demo.com).")

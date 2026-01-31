@@ -204,7 +204,7 @@ export async function GET() {
 
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getModelForPurpose } from "@/lib/ai/models";
+// Model selection temporarily using gemini-2.0-flash-exp directly
 
 export const dynamic = "force-dynamic"; // Node runtime only!
 
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: getModelForPurpose('flashcards'), // Use gemini-2.5-flash-lite
+      model: "gemini-2.5-flash-lite", // Available lite model
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 4000,

@@ -27,35 +27,35 @@ export type ModelPurpose =
  * - Short text: Gemini 3 Flash (fast, lightweight)
  */
 export const MODEL_CONFIG: Record<ModelPurpose, string> = {
-  quiz: 'gemini-3-flash',           // Distribute quiz load away from 2.5
+  quiz: 'gemini-2.5-flash-lite',    // Available model
   flashcards: 'gemini-2.5-flash-lite', // Use lite version for flashcards
-  chat: 'gemini-3-flash',           // Fast conversational model
+  chat: 'gemini-2.5-flash-lite',    // Fast conversational model
   summary: 'gemini-2.5-flash-lite', // Lightweight summarization
   embedding: 'text-embedding-004',  // Specialized embedding model
-  'short-text': 'gemini-3-flash',   // Quick responses
+  'short-text': 'gemini-1.5-flash',     // Quick responses
 }
 
 /**
  * Fallback models if primary model fails or hits rate limit
  */
 export const MODEL_FALLBACKS: Record<string, string[]> = {
-  'gemini-2.5-flash': ['gemini-3-flash', 'gemini-2.5-flash-lite'],
-  'gemini-3-flash': ['gemini-2.5-flash-lite', 'gemini-2.5-flash'],
-  'gemini-2.5-flash-lite': ['gemini-3-flash', 'gemini-2.5-flash'],
+  'gemini-2.5-flash': ['gemini-1.5-flash', 'gemini-2.5-flash-lite'],
+  'gemini-1.5-flash': ['gemini-2.5-flash-lite', 'gemini-2.5-flash'],
+  'gemini-2.5-flash-lite': ['gemini-1.5-flash', 'gemini-2.5-flash'],
 }
 
 /**
  * Get the recommended model for a specific purpose
  */
 export function getModelForPurpose(purpose: ModelPurpose): string {
-  return MODEL_CONFIG[purpose] || 'gemini-3-flash'
+  return MODEL_CONFIG[purpose] || 'gemini-1.5-flash'
 }
 
 /**
  * Get fallback models for a given model
  */
 export function getFallbackModels(model: string): string[] {
-  return MODEL_FALLBACKS[model] || ['gemini-3-flash', 'gemini-2.5-flash-lite']
+  return MODEL_FALLBACKS[model] || ['gemini-1.5-flash', 'gemini-2.5-flash-lite']
 }
 
 /**
@@ -69,11 +69,11 @@ export const MODEL_INFO = {
     description: 'Multi-modal, high quality - CURRENTLY OVER LIMIT',
     status: 'overused'
   },
-  'gemini-3-flash': {
-    rpm: 5,
-    tpm: 250000,
-    rpd: 20,
-    description: 'Text-out model, fast and efficient',
+  'gemini-1.5-flash': {
+    rpm: 15,
+    tpm: 1000000,
+    rpd: 1500,
+    description: 'Stable multimodal flash model',
     status: 'available'
   },
   'gemini-2.5-flash-lite': {

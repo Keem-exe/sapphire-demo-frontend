@@ -8,7 +8,7 @@ import { CapeSubjectCard } from "@/components/cape-subject-card"
 import { AddSubjectDialog } from "@/components/add-subject-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Sparkles, Plus, Search, LogOut, ArrowLeft } from "lucide-react"
+import { Sparkles, Plus, Search, LogOut, ArrowLeft, Brain, User } from "lucide-react"
 
 // Initial CSEC subjects
 const INITIAL_CSEC_SUBJECTS = [
@@ -207,6 +207,24 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/profile")}
+                className="text-primary border-primary/20 hover:bg-primary/10"
+              >
+                <User className="w-4 h-4 mr-2" />
+                Profile
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/engine-demo")}
+                className="text-primary border-primary/20 hover:bg-primary/10"
+              >
+                <Brain className="w-4 h-4 mr-2" />
+                Engine Demo
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
