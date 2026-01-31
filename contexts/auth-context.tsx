@@ -58,35 +58,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/login_user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: ANON_KEY,
-          Authorization: `Bearer ${ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          p_email: email,
-          p_password: password,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (Array.isArray(data) && data.length === 1) {
-        const userData = data[0]
-        setUser(userData)
-        localStorage.setItem("user", JSON.stringify(userData))
-
-        // Redirect based on whether user has selected a level
-        if (userData.level) {
-          router.push("/dashboard")
-        } else {
-          router.push("/select-level")
-        }
-      } else {
-        throw new Error("Invalid email or password")
+      // Demo auth - accept any email/password
+      const userData = {
+        user_id: 1,
+        email: email,
+        first_name: "Demo",
+        last_name: "User",
+        age: 17,
+        gender: "prefer not to say",
+        accountType: "student",
+        level: undefined, // Force level selection
+        learning_style: "visual" as const,
       }
+      
+      setUser(userData)
+      localStorage.setItem("user", JSON.stringify(userData))
+
+      // Redirect to level selection
+      router.push("/select-level")
     } catch (error) {
       console.error("Login error:", error)
       throw error
@@ -95,35 +84,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, password: string, firstName?: string, lastName?: string, age?: int, gender?: string, accountType?: string) => {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/register_user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: ANON_KEY,
-          Authorization: `Bearer ${ANON_KEY}`,
-        },
-        body: JSON.stringify(
-        {
-          p_email: email,
-          p_password: password,
-          p_first_name: firstName,
-          p_last_name: lastName,
-          p_age: age,
-          p_gender: gender,
-          p_account_type: accountType
-        }),
-      })
-
-      const data = await res.json()
-
-      if (Array.isArray(data) && data.length === 1) {
-        const userData = data[0]
-        setUser(userData)
-        localStorage.setItem("user", JSON.stringify(userData))
-        router.push("/select-level")
-      } else {
-        throw new Error("Registration failed")
+      // Demo registration - accept any input
+      const userData = {
+        user_id: Math.floor(Math.random() * 10000),
+        email: email,
+        first_name: firstName || "Demo",
+        last_name: lastName || "User",
+        age: age || 17,
+        gender: gender || "prefer not to say",
+        accountType: accountType || "student",
+        level: undefined,
+        learning_style: "visual" as const,
       }
+      
+      setUser(userData)
+      localStorage.setItem("user", JSON.stringify(userData))
+      router.push("/select-level")
     } catch (error) {
       console.error("Registration error:", error)
       throw error
