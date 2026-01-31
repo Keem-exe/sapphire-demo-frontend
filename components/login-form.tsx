@@ -24,16 +24,20 @@ export function LoginForm() {
     setError("")
 
     try {
-      await login(email, password) // your auth-context handles redirect if you want
-      // If you prefer to redirect here:
-      // window.location.href = "/select-level"
-    } catch (err) {
-      setError("Invalid email or password. Please try again.")
+      await login(email, password)
+    } catch (err: any) {
+      const errorMessage = err.message || "Invalid email or password. Please try again."
+      setError(errorMessage)
       console.error(err)
     } finally {
       setIsLoading(false)
     }
   }
+
+  // Check if error is about user not existing
+  const isUserNotFoundError = error.toLowerCase().includes("doesn't exist") || 
+                               error.toLowerCase().includes("does not exist") ||
+                               error.toLowerCase().includes("no user found")
 
   return (
     <Card className="border-2 shadow-2xl backdrop-blur-sm bg-card/95">
@@ -55,8 +59,15 @@ export function LoginForm() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-              {error}
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
+              <p className="text-destructive text-sm">{error}</p>
+              {isUserNotFoundError && (
+                <div className="pt-2 border-t border-destructive/20">
+                  <Link href="/dashboard/Signup" className="text-sm text-primary hover:underline font-medium">
+                    → Create a new account here
+                  </Link>
+                </div>
+              )}
             </div>
           )}
           <div className="space-y-2">

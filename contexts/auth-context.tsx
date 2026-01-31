@@ -101,7 +101,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error: any) {
       console.error("Login error:", error)
-      // Only show authentication error - no fallback to demo mode
+      
+      // Check if user doesn't exist (404 or specific error messages)
+      const errorMessage = error.message?.toLowerCase() || ''
+      if (error.status === 404 || errorMessage.includes('user not found') || errorMessage.includes('does not exist') || errorMessage.includes('no user found')) {
+        throw new Error("This account doesn't exist. Please check your email or register for a new account.")
+      }
+      
+      // Check for wrong password (401 or specific error messages)
+      if (error.status === 401 || errorMessage.includes('incorrect password') || errorMessage.includes('invalid password') || errorMessage.includes('wrong password')) {
+        throw new Error("Incorrect password. Please try again.")
+      }
+      
+      // Generic authentication error
       throw new Error(error.message || "Invalid email or password. Please check your credentials.")
     } finally {
       setIsLoading(false)
