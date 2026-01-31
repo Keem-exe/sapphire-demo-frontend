@@ -1,34 +1,60 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sparkles, ArrowLeft, Menu, X } from "lucide-react"
 import { NotebookSidebar } from "@/components/workspace/notebook-sidebar"
 import { AiChatPanel } from "@/components/workspace/ai-chat-panel"
 import { ToolsPanel } from "@/components/workspace/tools-panel"
+import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
 
-// Mock subject data
-const SUBJECTS: Record<string, { name: string; icon: string; color: string }> = {
-  "1": { name: "Mathematics", icon: "📐", color: "from-blue-500 to-cyan-500" },
-  "2": { name: "English A", icon: "📚", color: "from-purple-500 to-pink-500" },
-  "3": { name: "Chemistry", icon: "🧪", color: "from-green-500 to-emerald-500" },
-  "4": { name: "Physics", icon: "⚡", color: "from-orange-500 to-red-500" },
-  "5": { name: "Biology", icon: "🧬", color: "from-teal-500 to-green-500" },
-  "6": { name: "History", icon: "🏛️", color: "from-amber-500 to-yellow-500" },
-}
+const normalizeSubjectId = (id: string): SubjectId => {
+  const map: Record<string, SubjectId> = {
+    "1": "csec-math",
+    "2": "csec-eng",
+    "3": "csec-chem",
+    "4": "cape-phys",
+    "5": "cape-bio",
+    "6": "cape-puremath",
+  };
+  return (map[id] || id) as SubjectId;
+};
 
 export default function WorkspacePage() {
   const params = useParams()
   const router = useRouter()
-  const subjectId = params.subjectId as string
-  const subject = SUBJECTS[subjectId] || { name: "Unknown", icon: "📚", color: "from-primary to-secondary" }
+  const rawId = params.subjectId as string
+  const subjectId = useMemo(() => normalizeSubjectId(rawId), [rawId])
+  const subject = SUBJECTS[subjectId]
+
+  // Canonicalize URL
+  useEffect(() => {
+    if (rawId && rawId !== subjectId) {
+      router.replace(`/workspace/${subjectId}`)
+    }
+  }, [rawId, subjectId, router])
 
   const [showNotebook, setShowNotebook] = useState(true)
   const [showTools, setShowTools] = useState(true)
 
   const handleBack = () => {
     router.push("/dashboard")
+  }
+
+  if (!subject) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground">Unknown Subject</h1>
+          <p className="text-muted-foreground mt-2">Subject ID: {subjectId}</p>
+          <Button onClick={handleBack} className="mt-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -44,7 +70,7 @@ export default function WorkspacePage() {
               </Button>
               <div className="h-6 w-px bg-border" />
               <div className="flex items-center gap-2">
-                <span className="text-2xl">{subject.icon}</span>
+                <span className="text-2xl">📚</span>
                 <h1 className="text-lg font-semibold text-foreground">{subject.name}</h1>
               </div>
             </div>
