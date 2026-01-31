@@ -19,11 +19,12 @@ interface Note {
 
 interface NoteEditorProps {
   note: Note | null
+  isCreatingNote?: boolean
   onSave?: (note: Note) => void
   onClose?: () => void
 }
 
-export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
+export function NoteEditor({ note, isCreatingNote = false, onSave, onClose }: NoteEditorProps) {
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [tags, setTags] = useState<string[]>([])
@@ -34,12 +35,12 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
       setTitle(note.title)
       setContent(note.content)
       setTags(note.tags)
-    } else {
+    } else if (isCreatingNote) {
       setTitle("")
       setContent("")
       setTags([])
     }
-  }, [note])
+  }, [note, isCreatingNote])
 
   const handleSave = () => {
     const preview =
@@ -116,7 +117,7 @@ export function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
     }, 0)
   }
 
-  if (!note && title === "" && content === "") {
+  if (!note && !isCreatingNote) {
     return (
       <div className="h-full flex items-center justify-center p-8">
         <div className="text-center">

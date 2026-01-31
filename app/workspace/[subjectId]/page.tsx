@@ -5,9 +5,19 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sparkles, ArrowLeft, Menu, X } from "lucide-react"
 import { NotebookSidebar } from "@/components/workspace/notebook-sidebar"
+import { NoteEditor } from "@/components/workspace/note-editor"
 import { AiChatPanel } from "@/components/workspace/ai-chat-panel"
 import { ToolsPanel } from "@/components/workspace/tools-panel"
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
+
+interface Note {
+  id: string
+  title: string
+  date: string
+  preview: string
+  content: string
+  tags: string[]
+}
 
 const normalizeSubjectId = (id: string): SubjectId => {
   const map: Record<string, SubjectId> = {
@@ -37,6 +47,70 @@ export default function WorkspacePage() {
 
   const [showNotebook, setShowNotebook] = useState(true)
   const [showTools, setShowTools] = useState(true)
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null)
+  const [isCreatingNote, setIsCreatingNote] = useState(false)
+  const [notes, setNotes] = useState<Note[]>([])
+
+  // Load notes from localStorage
+  useEffect(() => {
+    const storageKey = `sapphire_notes_${subjectId}`
+    const storedNotes = localStorage.getItem(storageKey)
+    if (storedNotes) {
+      try {
+        setNotes(JSON.parse(storedNotes))
+      } catch (e) {
+        console.error('Failed to load notes:', e)
+      }
+    }
+  }, [subjectId])
+
+  // Save notes to localStorage whenever they change
+  useEffect(() => {
+    if (notes.length > 0) {
+      const storageKey = `sapphire_notes_${subjectId}`
+      localStorage.setItem(storageKey, JSON.stringify(notes))
+    }
+  }, [notes, subjectId])
+
+  const handleNoteSelect = (note: Note | null) => {
+    setSelectedNote(note)
+    setIsCreatingNote(false)
+  }
+
+  const handleNewNote = () => {
+    setSelectedNote(null)
+    setIsCreatingNote(true)
+  }
+
+  const handleNoteSave = (note: Note) => {
+    setNotes((prevNotes) => {
+      const existingIndex = prevNotes.findIndex((n) => n.id === note.id)
+      if (existingIndex >= 0) {
+        // Update existing note
+        const updated = [...prevNotes]
+        updated[existingIndex] = note
+        return updated
+      } else {
+        // Add new note
+        return [note, ...prevNotes]
+      }
+    })
+    setSelectedNote(note)
+    setIsCreatingNote(false)
+  }
+
+  const handleNoteDelete = (noteId: string) => {
+    setNotes((prevNotes) => prevNotes.filter((n) => n.id !== noteId))
+    if (selectedNote?.id === noteId) {
+      setSelectedNote(null)
+      setIsCreatingNote(false)
+    }
+  }
+
+  const handleEditorClose = () => {
+    setSelectedNote(null)
+    setIsCreatingNote(false)
+  }
 
   const handleBack = () => {
     router.push("/dashboard")
@@ -97,9 +171,25 @@ export default function WorkspacePage() {
         <div
           className={`${
             showNotebook ? "w-80" : "w-0"
-          } transition-all duration-300 border-r bg-card/30 backdrop-blur-sm overflow-hidden`}
+          } transition-all duration-300 border-r bg-card/30 backdrop-blur-sm overflow-hidden flex flex-col`}
         >
-          <NotebookSidebar subjectId={subjectId} />
+          <div className="flex-1 overflow-hidden">
+            <NotebookSidebar 
+              subjectId={subjectId} 
+              notes={notes}
+              onNoteSelect={handleNoteSelect}
+              onNewNote={handleNewNote}
+              onNoteDelete={handleNoteDelete}
+            />
+          </div>
+          <div className="flex-1 overflow-hidden border-t">
+            <NoteEditor 
+              note={isCreatingNote ? null : selectedNote}
+              onSave={handleNoteSave}
+              onClose={handleEditorClose}
+              isCreatingNote={isCreatingNote}
+            />
+          </div>
         </div>
 
         {/* Center Panel - AI Chat */}

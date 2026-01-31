@@ -21,39 +21,15 @@ interface Note {
 interface NotebookSidebarProps {
   subjectId: string
   unit?: string | null
+  notes: Note[]
   onNoteSelect?: (note: Note | null) => void
   onNewNote?: () => void
+  onNoteDelete?: (noteId: string) => void
 }
 
-export function NotebookSidebar({ subjectId, unit, onNoteSelect, onNewNote }: NotebookSidebarProps) {
+export function NotebookSidebar({ subjectId, unit, notes, onNoteSelect, onNewNote, onNoteDelete }: NotebookSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
-  const [notes, setNotes] = useState<Note[]>([
-    {
-      id: "1",
-      title: "Chapter 1: Introduction",
-      date: "2 hours ago",
-      preview: "Basic concepts and definitions...",
-      content: "# Chapter 1: Introduction\n\nBasic concepts and definitions for this topic.",
-      tags: ["introduction", "basics"],
-    },
-    {
-      id: "2",
-      title: "Practice Problems",
-      date: "1 day ago",
-      preview: "Solving quadratic equations...",
-      content: "# Practice Problems\n\nSolving quadratic equations step by step.",
-      tags: ["practice", "problems"],
-    },
-    {
-      id: "3",
-      title: "Key Formulas",
-      date: "2 days ago",
-      preview: "Important formulas to remember...",
-      content: "# Key Formulas\n\nImportant formulas to remember for exams.",
-      tags: ["formulas", "reference"],
-    },
-  ])
 
   const filteredNotes = notes.filter(
     (note) =>
@@ -73,7 +49,7 @@ export function NotebookSidebar({ subjectId, unit, onNoteSelect, onNewNote }: No
 
   const handleDeleteNote = (noteId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    setNotes(notes.filter((n) => n.id !== noteId))
+    onNoteDelete?.(noteId)
     if (selectedNoteId === noteId) {
       setSelectedNoteId(null)
       onNoteSelect?.(null)
