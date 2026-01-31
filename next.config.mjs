@@ -5,8 +5,20 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
-    domains: ['i.ytimg.com', 'img.youtube.com'], // YouTube thumbnails
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+      },
+    ],
   },
+  // Production optimizations
+  compress: true,
+  poweredByHeader: false,
   // Enable environment variables on client side
   env: {
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,

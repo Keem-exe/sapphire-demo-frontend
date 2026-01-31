@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         setUser(parsedUser)
       } catch (error) {
-        console.error("Failed to parse stored user:", error)
+        if (process.env.NODE_ENV === 'development') console.error("Failed to parse stored user:", error)
         localStorage.removeItem("user")
       }
     }

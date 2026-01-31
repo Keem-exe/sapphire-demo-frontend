@@ -30,8 +30,6 @@ async function handleSend() {
     history: messages.slice(-8),
   }
 
-  console.log("📤 Sending payload:", payload)
-
   const userMsg = { role: "user" as const, content: cleanedMessage }
   setMessages((m) => [...m, userMsg])
   setMessage("")
