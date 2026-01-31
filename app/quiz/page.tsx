@@ -1,9 +1,7 @@
 // app/quiz/take/page.tsx
-import dynamic from "next/dynamic"
+"use client"
 
-export const metadata = {
-  title: "Take Quiz",
-}
+import dynamic from "next/dynamic"
 
 // dynamic to keep it client-only
 const QuizRunner = dynamic(() => import("@/components/quiz/quiz-runner"), { ssr: false })

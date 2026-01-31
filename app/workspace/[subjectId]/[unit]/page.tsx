@@ -26,7 +26,7 @@ export default function WorkspacePage() {
   const router = useRouter()
   const subjectId = params.subjectId as string
   const unit = params.unit as string
-  const normalizeSubjectId = (id: string): SubjectId => {
+  
   // ✅ Normalize route-based subject IDs
   const normalizeSubjectId = (id: string): string => {
     const map: Record<string, string> = {
