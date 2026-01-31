@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const register = async (email: string, password: string, firstName?: string, lastName?: string, age?: int, gender?: string, accountType?: string) => {
+  const register = async (email: string, password: string, firstName?: string, lastName?: string, age?: number, gender?: string, accountType?: string) => {
     try {
       // Demo registration - accept any input
       const userData = {
