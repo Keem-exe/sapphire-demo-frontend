@@ -235,24 +235,33 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2048,
-        responseMimeType: "application/json",
+        temperature: 0.3,
+        maxOutputTokens: 4000,
       },
+      systemInstruction: "You are a JSON-only API. Return only valid JSON objects with no additional text, markdown, or formatting.",
     });
 
-    const prompt = `
-Return ONLY valid JSON. Do NOT include markdown fences or commentary.
-Schema:
+    const prompt = `Generate ${count} flashcards for subject: ${subjectId}
+Topics: ${topics.join(", ")}
+
+Return ONLY this JSON structure (no markdown, no code blocks, no explanations):
 {
- "flashcards":[{"id":"string","front":"string","back":"string","topic":"string","subjectId":"string","difficulty":"easy|medium|hard"}]
+  "flashcards": [
+    {
+      "id": "fc1",
+      "front": "What is photosynthesis?",
+      "back": "The process by which plants convert light into energy",
+      "topic": "${topics[0] || "General"}",
+      "subjectId": "${subjectId}",
+      "difficulty": "medium"
+    }
+  ]
 }
 
-Generate ${count} flashcards for "${subjectId}" on these topics: ${topics.join(", ")}.
-Keep answers short. All output must strictly follow the schema above.
-`;
+Make ${count} flashcards. Each must have: id, front (question/term), back (answer/definition), topic, subjectId, difficulty (easy/medium/hard).
+Output the JSON object directly.`;
 
     const resp = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -261,14 +270,24 @@ Keep answers short. All output must strictly follow the schema above.
     let raw = resp.response.text().trim();
     if (!raw) throw new Error("Empty model response");
 
+    // Log the raw response for debugging
+    console.log("Raw Gemini response:", raw.substring(0, 200));
+
+    // Strip markdown code fences if present
+    raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+
     // Try normal parse
     let json;
     try {
       json = JSON.parse(raw);
-    } catch {
+    } catch (parseError) {
+      console.error("JSON parse failed, attempting extraction. Error:", parseError);
       // Maybe wrapped in markdown or mixed content
       const block = extractFirstJsonObject(raw);
-      if (!block) throw new Error("Model returned non-JSON");
+      if (!block) {
+        console.error("No JSON block found in response:", raw);
+        throw new Error("Model returned non-JSON");
+      }
       json = JSON.parse(block);
     }
 

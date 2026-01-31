@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Brain, Eye, Ear, Hand, BookText, ArrowRight, ArrowLeft } from "lucide-react"
+import { Brain, Eye, Ear, Hand, BookText, ArrowRight, ArrowLeft, SkipForward } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 
@@ -173,6 +173,12 @@ export default function LearningQuizPage() {
     router.push("/dashboard")
   }
 
+  const handleSkip = () => {
+    // Set a default learning style
+    localStorage.setItem("learningStyle", "visual")
+    router.push("/dashboard")
+  }
+
   const progress = ((currentQuestion + 1) / QUIZ_QUESTIONS.length) * 100
   const currentQuestionData = QUIZ_QUESTIONS[currentQuestion]
   const currentAnswer = answers[currentQuestion]
@@ -246,6 +252,15 @@ export default function LearningQuizPage() {
                 </CardDescription>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSkip}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              <SkipForward className="w-4 h-4 mr-1" />
+              Skip
+            </Button>
           </div>
           <Progress value={progress} className="h-2" />
         </CardHeader>

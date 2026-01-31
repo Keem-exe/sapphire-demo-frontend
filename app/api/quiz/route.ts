@@ -36,34 +36,33 @@ export async function POST(req: NextRequest) {
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2048,
-        responseMimeType: "application/json",
+        temperature: 0.3,
+        maxOutputTokens: 4000,
       },
+      systemInstruction: "You are a JSON-only API. Return only valid JSON objects with no additional text, markdown, or formatting.",
     });
 
-    const prompt = `
-Return ONLY valid JSON (no markdown, no prose).
+    const prompt = `Generate ${count} ${difficulty} quiz questions for subject: ${subjectId}
+Topics: ${topics?.join(", ") || "general topics"}
+Question types: ${types?.join(", ") || "MCQ"}
 
-Schema:
+Return ONLY this JSON structure (no markdown, no code blocks, no explanations):
 {
- "questions": [
-   {
-     "id": "string",
-     "question": "string",
-     "options": ["string", "string", "string", "string"],
-     "answer": "string",
-     "difficulty": "easy|medium|hard",
-     "topic": "string",
-     "type": "MCQ|True/False|Short Answer|Fill in the Blank"
-   }
- ]
+  "questions": [
+    {
+      "id": "q1",
+      "question": "What is 2 + 2?",
+      "options": ["1", "2", "3", "4"],
+      "answer": "4",
+      "difficulty": "${difficulty}",
+      "topic": "${topics?.[0] || "General"}",
+      "type": "${types?.[0] || "MCQ"}"
+    }
+  ]
 }
 
-Generate ${count} ${difficulty}-level quiz questions for subject "${subjectId}".
-Include topics: ${topics?.join(", ") || "general topics"}.
-Use only the types: ${types?.join(", ") || "MCQ"}.
-`;
+Make ${count} questions. For MCQ: provide 4 options and specify the correct answer.
+Output the JSON object directly.`;
 
     const response = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -72,12 +71,21 @@ Use only the types: ${types?.join(", ") || "MCQ"}.
     let raw = response.response.text().trim();
     if (!raw) throw new Error("Empty model response");
 
+    console.log("Raw quiz response:", raw.substring(0, 200));
+
+    // Strip markdown code fences if present
+    raw = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+
     let json;
     try {
       json = JSON.parse(raw);
-    } catch {
+    } catch (parseError) {
+      console.error("Quiz JSON parse failed:", parseError);
       const block = extractFirstJsonObject(raw);
-      if (!block) throw new Error("Model returned non-JSON");
+      if (!block) {
+        console.error("No JSON block found in quiz response:", raw);
+        throw new Error("Model returned non-JSON");
+      }
       json = JSON.parse(block);
     }
 

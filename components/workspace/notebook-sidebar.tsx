@@ -117,10 +117,18 @@ export function NotebookSidebar({ subjectId, unit, onNoteSelect, onNewNote }: No
             </div>
           ) : (
             filteredNotes.map((note) => (
-              <button
+              <div
                 key={note.id}
                 onClick={() => handleNoteClick(note)}
-                className={`w-full p-3 mb-2 rounded-lg transition-colors text-left group ${
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleNoteClick(note);
+                  }
+                }}
+                className={`w-full p-3 mb-2 rounded-lg transition-colors text-left group cursor-pointer ${
                   selectedNoteId === note.id
                     ? "bg-primary/10 border-2 border-primary"
                     : "hover:bg-accent/50 border-2 border-transparent"
@@ -165,7 +173,7 @@ export function NotebookSidebar({ subjectId, unit, onNoteSelect, onNewNote }: No
                     ))}
                   </div>
                 )}
-              </button>
+              </div>
             ))
           )}
         </div>
