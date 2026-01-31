@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { SUBJECTS, type SubjectId } from "@/lib/data/subjects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +20,32 @@ type Question = {
   type?: string;
 };
 
+const normalizeSubjectId = (id: string): SubjectId => {
+  const map: Record<string, SubjectId> = {
+    "csec-1": "csec-math",
+    "csec-2": "csec-chem",
+    "csec-3": "csec-eng",
+    "cape-1": "cape-puremath",
+    "cape-2": "cape-phys",
+    "cape-3": "cape-bio",
+  };
+  return (map[id] || id) as SubjectId;
+};
+
 export default function QuizPage() {
+  const params = useParams();
+  const router = useRouter();
+  const rawId = String(params.subjectId || "csec-math");
+  const subjectId = useMemo(() => normalizeSubjectId(rawId), [rawId]);
+  const subject = SUBJECTS[subjectId];
+
+  // Canonicalize URL
+  useEffect(() => {
+    if (rawId && rawId !== subjectId) {
+      router.replace(`/workspace/${subjectId}/quiz`);
+    }
+  }, [rawId, subjectId, router]);
+
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<number | null>(null);
@@ -27,12 +54,18 @@ export default function QuizPage() {
   const [err, setErr] = useState<string | null>(null);
 
   // user inputs
-  const [subjectId, setSubjectId] = useState("csec-math");
-  const [topics, setTopics] = useState<string[]>(["Algebra"]);
+  const [topics, setTopics] = useState<string[]>([]);
   const [count, setCount] = useState(5);
   const [difficulty, setDifficulty] = useState("medium");
   const [types, setTypes] = useState<string[]>(["MCQ"]);
-
+  
+  // Initialize topics when subject changes
+  useEffect(() => {
+    if (subject && subject.topics.length > 0) {
+      setTopics([subject.topics[0]]);
+    }
+  }, [subjectId]);
+  
   // toggle helpers
   const toggle = (list: string[], setList: (v: string[]) => void, item: string) =>
     setList(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
@@ -108,20 +141,22 @@ export default function QuizPage() {
   };
 
   // --- BEFORE GENERATION (Setup Form) ---
+  if (!subject) return <div className="p-6">Unknown subject.</div>;
+  
   if (!questions.length)
     return (
       <div className="p-6 max-w-xl mx-auto space-y-6 text-center">
-        <h1 className="text-3xl font-bold">Quiz — Mathematics</h1>
+        <h1 className="text-3xl font-bold">Quiz — {subject.name}</h1>
 
         <div className="space-y-2 text-left">
           <Label>Subject ID</Label>
-          <Input value={subjectId} onChange={(e) => setSubjectId(e.target.value)} />
+          <Input value={subjectId} readOnly />
         </div>
 
         <div className="space-y-2 text-left">
           <Label>Topics</Label>
           <div className="grid grid-cols-2 gap-2">
-            {["Algebra", "Geometry", "Trigonometry", "Statistics", "Number Theory"].map((t) => (
+            {subject.topics.map((t) => (
               <label key={t} className="flex items-center gap-2">
                 <Checkbox
                   checked={topics.includes(t)}
