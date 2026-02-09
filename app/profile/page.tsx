@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { analyticsService } from "@/lib/services/analytics"
 import { intelligenceEngine } from "@/lib/services/intelligence-engine"
+import { quizHistoryService } from "@/lib/services/quiz-history-service"
+import { useQuizCompletion, useNextContent } from '@/lib/hooks/use-learning-intelligence'
 import {
   Card,
   CardContent,
@@ -29,13 +31,18 @@ import {
   Brain,
   Flame,
 } from "lucide-react"
+import { LearningDashboard } from '@/components/learning/LearningDashboard'
 
 export default function ProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
   const [analytics, setAnalytics] = useState<any>(null)
   const [intelligence, setIntelligence] = useState<any>(null)
+  const [quizHistory, setQuizHistory] = useState<any[]>([])
+  const [flashcardHistory, setFlashcardHistory] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const { recordCompletion } = useQuizCompletion()
+  const { recommendation } = useNextContent(user?.id || null, undefined)
 
   useEffect(() => {
     if (!user) {
@@ -44,12 +51,18 @@ export default function ProfilePage() {
     }
 
     // Load analytics and intelligence data
-    const loadData = () => {
+    const loadData = async () => {
       try {
         const analyticsData = analyticsService.getAnalytics(user.user_id)
         const intelligenceData = intelligenceEngine.getLearningIntelligence(user.user_id, "csec-math")
         setAnalytics(analyticsData)
         setIntelligence(intelligenceData)
+        
+        // Load real quiz history from backend
+        const quizData = await quizHistoryService.getQuizHistory(user.user_id, 20)
+        const flashcardData = await quizHistoryService.getFlashcardHistory(user.user_id, 20)
+        setQuizHistory(quizData)
+        setFlashcardHistory(flashcardData)
       } catch (error) {
         console.error("Failed to load profile data:", error)
       } finally {
@@ -110,10 +123,30 @@ export default function ProfilePage() {
   }
 
   const getQuizHistory = () => {
+    // Use real backend data if available, otherwise fall back to intelligence engine
+    if (quizHistory && quizHistory.length > 0) {
+      return quizHistory.map((quiz) => ({
+        subject_id: `subject-${quiz.subjectId}`,
+        topic: quiz.topic,
+        completed_at: quiz.completedAt,
+        score: quiz.score
+      }))
+    }
     return intelligence?.student_signals?.recent_quizzes || []
   }
 
   const getFlashcardHistory = () => {
+    // Use real backend data if available, otherwise fall back to intelligence engine
+    if (flashcardHistory && flashcardHistory.length > 0) {
+      return flashcardHistory.map((session) => ({
+        subject_id: `subject-${session.subjectId}`,
+        topic: session.topic,
+        completed_at: session.completedAt,
+        cards_studied: session.cardsStudied,
+        cards_mastered: session.cardsMastered,
+        mastery_rate: session.masteryRate
+      }))
+    }
     return intelligence?.student_signals?.recent_flashcards || []
   }
 
@@ -225,6 +258,7 @@ export default function ProfilePage() {
 
         {/* Risk Alert (if applicable) */}
         {intelligence?.personalized_actions?.risk_alerts && 
+         intelligence.personalized_actions.risk_alerts.level && 
          intelligence.personalized_actions.risk_alerts.level !== "none" && (
           <Card className="lg:col-span-3 border-destructive/50">
             <CardHeader>
@@ -245,7 +279,7 @@ export default function ProfilePage() {
               <div className="space-y-2">
                 <p className="text-sm font-medium">Suggested Actions:</p>
                 <ul className="list-disc list-inside space-y-1">
-                  {intelligence.personalized_actions.risk_alerts.intervention_suggestions.map((suggestion: string, i: number) => (
+                  {intelligence.personalized_actions.risk_alerts.intervention_suggestions?.map((suggestion: string, i: number) => (
                     <li key={i} className="text-sm text-muted-foreground">
                       {suggestion}
                     </li>
@@ -255,6 +289,11 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Learning Intelligence Dashboard */}
+        <div className="lg:col-span-3">
+          <LearningDashboard userId={user.user_id} />
+        </div>
 
         {/* Main Tabs */}
         <div className="lg:col-span-3">

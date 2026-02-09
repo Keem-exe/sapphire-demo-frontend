@@ -13,24 +13,56 @@ export class ApiClient {
   }
 
   /**
+   * Get authentication headers
+   */
+  private getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Get token from localStorage
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+    return headers;
+  }
+
+  /**
    * Make a GET request
    */
-  async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+  async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, value);
+        if (value !== undefined && value !== null) {
+          url.searchParams.append(key, String(value));
+        }
+      });
+    }
+
+    const headers = this.getAuthHeaders();
+    
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API GET Request:', {
+        url: url.toString(),
+        hasToken: !!headers['Authorization'],
+        headers
       });
     }
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      console.error('API Error:', response.status, errorText);
       throw new Error(`API Error: ${response.status} ${response.statusText}`);
     }
 
@@ -44,9 +76,7 @@ export class ApiClient {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify(data),
       });
 

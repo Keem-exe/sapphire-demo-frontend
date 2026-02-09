@@ -8,6 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/auth-context";
+import { learningIntelligenceService } from "@/lib/services/learning-intelligence-service";
+import { useToast } from "@/hooks/use-toast";
 
 // Map legacy/alias route IDs to canonical SUBJECTS keys
 const normalizeSubjectId = (id: string): SubjectId => {
@@ -32,6 +35,8 @@ type Flashcard = {
 };
 
 export default function FlashcardsPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const params = useParams();
   const router = useRouter();
   const rawId = String(params.subjectId || "");
@@ -51,6 +56,9 @@ export default function FlashcardsPage() {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [masteredCards, setMasteredCards] = useState<Set<string>>(new Set());
+  const [reviewedCards, setReviewedCards] = useState<Set<string>>(new Set());
 
   if (!subject) return <div className="p-6">Unknown subject.</div>;
 
@@ -83,10 +91,67 @@ export default function FlashcardsPage() {
 
     setCards(Array.isArray(json.flashcards) ? json.flashcards : []);
     if (!json.flashcards?.length) setErr("No flashcards returned. Try different topics or increase count.");
+    
+    // Start tracking flashcard session
+    setSessionStartTime(Date.now());
+    setMasteredCards(new Set());
+    setReviewedCards(new Set());
   } catch (e: any) {
     setErr(e.message || "Something went wrong");
   } finally {
     setLoading(false);
+  }
+};
+
+const handleCardReview = (cardId: string, mastered: boolean) => {
+  setReviewedCards(prev => new Set(prev).add(cardId));
+  if (mastered) {
+    setMasteredCards(prev => new Set(prev).add(cardId));
+  }
+};
+
+const handleEndSession = async () => {
+  if (!user || !sessionStartTime || reviewedCards.size === 0) return;
+  
+  try {
+    const durationSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
+    const masteryRate = masteredCards.size / reviewedCards.size;
+    
+    // Record flashcard session
+    await learningIntelligenceService.recordInteraction({
+      userId: user.user_id,
+      subjectId: parseInt(canonicalId.split('-')[1]) || 1,
+      topicId: null,
+      interactionType: 'flashcard',
+      referenceId: null,
+      durationSeconds,
+      accuracy: masteryRate,
+      difficulty: 'medium',
+      metadata: {
+        cardsStudied: reviewedCards.size,
+        cardsMastered: masteredCards.size,
+        topics: topics.length > 0 ? topics : subject.topics.slice(0, 3),
+        totalCards: cards.length
+      }
+    });
+    
+    toast({
+      title: "Session Recorded",
+      description: `Reviewed ${reviewedCards.size} cards, mastered ${masteredCards.size}!`,
+    });
+    
+    // Reset session
+    setCards([]);
+    setSessionStartTime(null);
+    setMasteredCards(new Set());
+    setReviewedCards(new Set());
+  } catch (error) {
+    console.error('Failed to record flashcard session:', error);
+    toast({
+      title: "Note",
+      description: "Session not saved to your profile. Please check your connection.",
+      variant: "destructive"
+    });
   }
 };
 
@@ -126,19 +191,53 @@ export default function FlashcardsPage() {
       </div>
 
       {!!cards.length && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {cards.map((c) => (
-            <Card key={c.id}>
-              <CardContent className="p-4 space-y-2">
-                <div className="font-semibold">{c.front}</div>
-                <div className="text-muted-foreground">{c.back}</div>
-                <div className="text-xs mt-2">
-                  Topic: {c.topic} • {c.difficulty}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+            <div className="text-sm">
+              <span className="font-semibold">Session Progress:</span> {reviewedCards.size}/{cards.length} reviewed • {masteredCards.size} mastered
+            </div>
+            <Button onClick={handleEndSession} variant="default" disabled={reviewedCards.size === 0}>
+              End Session & Save
+            </Button>
+          </div>
+          
+          <div className="grid gap-4 sm:grid-cols-2">
+            {cards.map((c) => {
+              const isReviewed = reviewedCards.has(c.id);
+              const isMastered = masteredCards.has(c.id);
+              
+              return (
+                <Card key={c.id} className={isReviewed ? (isMastered ? "border-green-500" : "border-yellow-500") : ""}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="font-semibold">{c.front}</div>
+                    <div className="text-muted-foreground">{c.back}</div>
+                    <div className="text-xs mt-2">
+                      Topic: {c.topic} • {c.difficulty}
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <Button 
+                        size="sm" 
+                        variant={isMastered ? "default" : "outline"}
+                        onClick={() => handleCardReview(c.id, true)}
+                        disabled={isReviewed}
+                      >
+                        ✓ Mastered
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={isReviewed && !isMastered ? "secondary" : "outline"}
+                        onClick={() => handleCardReview(c.id, false)}
+                        disabled={isReviewed}
+                      >
+                        ↻ Review Later
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

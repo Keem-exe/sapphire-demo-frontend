@@ -7,6 +7,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Save, X, Tag, Bold, Italic, List, ListOrdered, Heading1, Heading2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+import { useAuth } from "@/contexts/auth-context"
+import { learningIntelligenceService } from "@/lib/services/learning-intelligence-service"
+import { useToast } from "@/hooks/use-toast"
 
 interface Note {
   id: string
@@ -22,13 +25,18 @@ interface NoteEditorProps {
   isCreatingNote?: boolean
   onSave?: (note: Note) => void
   onClose?: () => void
+  subjectId?: string
 }
 
-export function NoteEditor({ note, isCreatingNote = false, onSave, onClose }: NoteEditorProps) {
+export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subjectId }: NoteEditorProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState("")
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null)
+  const [wordCount, setWordCount] = useState(0)
 
   useEffect(() => {
     if (note) {
@@ -39,10 +47,17 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose }: No
       setTitle("")
       setContent("")
       setTags([])
+      setSessionStartTime(Date.now()) // Start tracking new note session
     }
   }, [note, isCreatingNote])
 
-  const handleSave = () => {
+  // Track word count
+  useEffect(() => {
+    const words = content.trim().split(/\s+/).filter(w => w.length > 0).length;
+    setWordCount(words);
+  }, [content])
+
+  const handleSave = async () => {
     const preview =
       content
         .slice(0, 100)
@@ -57,6 +72,37 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose }: No
       tags,
     }
     onSave?.(savedNote)
+    
+    // Record note-taking interaction
+    if (user && subjectId && sessionStartTime) {
+      try {
+        const durationSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
+        
+        await learningIntelligenceService.recordInteraction({
+          userId: user.user_id,
+          subjectId: parseInt(subjectId.split('-')[1]) || 1,
+          topicId: null,
+          interactionType: 'notebook',
+          referenceId: null,
+          durationSeconds,
+          accuracy: 1.0, // Note-taking doesn't have accuracy
+          difficulty: 'medium',
+          metadata: {
+            noteTitle: savedNote.title,
+            wordCount: wordCount,
+            tags: tags,
+            action: note ? 'edited' : 'created'
+          }
+        });
+        
+        toast({
+          title: "Note Saved",
+          description: `Your note has been saved to your learning profile!`,
+        });
+      } catch (error) {
+        console.error('Failed to record note-taking:', error);
+      }
+    }
   }
 
   const handleAddTag = () => {

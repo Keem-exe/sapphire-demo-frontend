@@ -188,6 +188,7 @@ export default function WorkspacePage() {
               onSave={handleNoteSave}
               onClose={handleEditorClose}
               isCreatingNote={isCreatingNote}
+              subjectId={subjectId}
             />
           </div>
         </div>
