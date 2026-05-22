@@ -14,6 +14,41 @@ import type {
   RiskIndicator,
 } from '../services/learning-intelligence-service'
 
+const CACHE_TTL_MS = 45_000
+const learningCache = new Map<string, { value: unknown; expiresAt: number }>()
+const inflightRequests = new Map<string, Promise<unknown>>()
+
+function getCached<T>(key: string): T | null {
+  const entry = learningCache.get(key)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) {
+    learningCache.delete(key)
+    return null
+  }
+  return entry.value as T
+}
+
+function setCached<T>(key: string, value: T, ttlMs: number = CACHE_TTL_MS): T {
+  learningCache.set(key, {
+    value,
+    expiresAt: Date.now() + ttlMs,
+  })
+  return value
+}
+
+async function withDedupe<T>(key: string, loader: () => Promise<T>): Promise<T> {
+  const pending = inflightRequests.get(key)
+  if (pending) {
+    return pending as Promise<T>
+  }
+
+  const request = loader().finally(() => {
+    inflightRequests.delete(key)
+  })
+  inflightRequests.set(key, request)
+  return request
+}
+
 /**
  * Hook for learning dashboard data
  */
@@ -25,10 +60,19 @@ export function useLearningDashboard(userId: number | null) {
   const fetchDashboard = useCallback(async () => {
     if (!userId) return
 
+    const cacheKey = `dashboard:${userId}`
+    const cached = getCached<LearningDashboard>(cacheKey)
+    if (cached) {
+      setDashboard(cached)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const data = await learningIntelligenceService.getDashboard(userId)
+      const data = await withDedupe(cacheKey, () => learningIntelligenceService.getDashboard(userId))
+      setCached(cacheKey, data)
       setDashboard(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch dashboard')
@@ -55,10 +99,19 @@ export function useNextContent(userId: number | null, subjectId?: number) {
   const fetchRecommendation = useCallback(async () => {
     if (!userId) return
 
+    const cacheKey = `next-content:${userId}:${subjectId ?? 'all'}`
+    const cached = getCached<NextContentRecommendation>(cacheKey)
+    if (cached) {
+      setRecommendation(cached)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const data = await learningIntelligenceService.getNextContent(userId, subjectId)
+      const data = await withDedupe(cacheKey, () => learningIntelligenceService.getNextContent(userId, subjectId))
+      setCached(cacheKey, data)
       setRecommendation(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch recommendation')
@@ -119,10 +172,19 @@ export function useKnowledgeGaps(userId: number | null, subjectId?: number) {
   const fetchGaps = useCallback(async () => {
     if (!userId) return
 
+    const cacheKey = `gaps:${userId}:${subjectId ?? 'all'}`
+    const cached = getCached<KnowledgeGap[]>(cacheKey)
+    if (cached) {
+      setGaps(cached)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const data = await learningIntelligenceService.getKnowledgeGaps(userId, subjectId)
+      const data = await withDedupe(cacheKey, () => learningIntelligenceService.getKnowledgeGaps(userId, subjectId))
+      setCached(cacheKey, data)
       setGaps(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch knowledge gaps')
@@ -184,6 +246,7 @@ export function useRiskDetection(userId: number | null) {
     try {
       const data = await learningIntelligenceService.detectRisks(userId)
       setRisks(data.detected_risks)
+      setCached(`risks:${userId}`, data.detected_risks)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to detect risks')
     } finally {
@@ -194,10 +257,19 @@ export function useRiskDetection(userId: number | null) {
   const fetchActiveRisks = useCallback(async () => {
     if (!userId) return
 
+    const cacheKey = `risks:${userId}`
+    const cached = getCached<RiskIndicator[]>(cacheKey)
+    if (cached) {
+      setRisks(cached)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const data = await learningIntelligenceService.getRisks(userId)
+      const data = await withDedupe(cacheKey, () => learningIntelligenceService.getRisks(userId))
+      setCached(cacheKey, data)
       setRisks(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch risks')

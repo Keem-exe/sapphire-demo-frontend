@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
-import { learningIntelligenceService } from "@/lib/services/learning-intelligence-service";
+import { apiClient } from "@/lib/api-client";
+import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
 import { useToast } from "@/hooks/use-toast";
 
 // Map legacy/alias route IDs to canonical SUBJECTS keys
@@ -59,6 +60,7 @@ export default function FlashcardsPage() {
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [masteredCards, setMasteredCards] = useState<Set<string>>(new Set());
   const [reviewedCards, setReviewedCards] = useState<Set<string>>(new Set());
+  const [backendSetId, setBackendSetId] = useState<number | null>(null);
 
   if (!subject) return <div className="p-6">Unknown subject.</div>;
 
@@ -66,42 +68,74 @@ export default function FlashcardsPage() {
     setTopics((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
 
   const onGenerate = async () => {
-  try {
-    setErr(null);
-    setLoading(true);
-    setCards([]);
+    try {
+      setErr(null);
+      setLoading(true);
+      setCards([]);
+      setBackendSetId(null);
 
-    const res = await fetch("/api/flashcards", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        subjectId: canonicalId,
-        topics: topics.length ? topics : subject.topics.slice(0, 3),
-        count,
-        learningStyle,
-      }),
-    });
+      if (hasAuthToken()) {
+        const selectedTopics = topics.length ? topics : subject.topics.slice(0, 3);
+        const { subjectId: backendSubjectId, topicIds } = await resolveBackendSubjectContext(
+          canonicalId,
+          selectedTopics
+        );
 
-    const text = await res.text();
-    let json: any = {};
-    try { json = JSON.parse(text); }
-    catch { throw new Error(`Server returned invalid JSON (status ${res.status})`); }
+        const response: any = await apiClient.post("/api/ai/flashcards", {
+          subjectId: backendSubjectId,
+          topics: topicIds,
+          count,
+        });
 
-    if (!res.ok) throw new Error(json.error || `Failed with ${res.status}`);
+        const data = response?.data || response;
+        const backendCards = data?.flashcards || [];
+        const mapped = backendCards.map((c: any) => ({
+          id: String(c.id),
+          front: c.front || "",
+          back: c.back || "",
+          topic: selectedTopics[0] || "General",
+          subjectId: String(backendSubjectId),
+          difficulty: "medium",
+        }));
 
-    setCards(Array.isArray(json.flashcards) ? json.flashcards : []);
-    if (!json.flashcards?.length) setErr("No flashcards returned. Try different topics or increase count.");
-    
-    // Start tracking flashcard session
-    setSessionStartTime(Date.now());
-    setMasteredCards(new Set());
-    setReviewedCards(new Set());
-  } catch (e: any) {
-    setErr(e.message || "Something went wrong");
-  } finally {
-    setLoading(false);
-  }
-};
+        setBackendSetId(data?.setId || null);
+        setCards(mapped);
+      } else {
+        const res = await fetch("/api/flashcards", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            subjectId: canonicalId,
+            topics: topics.length ? topics : subject.topics.slice(0, 3),
+            count,
+            learningStyle,
+          }),
+        });
+
+        const text = await res.text();
+        let json: any = {};
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error(`Server returned invalid JSON (status ${res.status})`);
+        }
+
+        if (!res.ok) throw new Error(json.error || `Failed with ${res.status}`);
+
+        setCards(Array.isArray(json.flashcards) ? json.flashcards : []);
+        if (!json.flashcards?.length) setErr("No flashcards returned. Try different topics or increase count.");
+      }
+
+      // Start tracking flashcard session
+      setSessionStartTime(Date.now());
+      setMasteredCards(new Set());
+      setReviewedCards(new Set());
+    } catch (e: any) {
+      setErr(e.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 const handleCardReview = (cardId: string, mastered: boolean) => {
   setReviewedCards(prev => new Set(prev).add(cardId));
@@ -112,34 +146,25 @@ const handleCardReview = (cardId: string, mastered: boolean) => {
 
 const handleEndSession = async () => {
   if (!user || !sessionStartTime || reviewedCards.size === 0) return;
-  
+
   try {
     const durationSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
     const masteryRate = masteredCards.size / reviewedCards.size;
-    
-    // Record flashcard session
-    await learningIntelligenceService.recordInteraction({
-      userId: user.user_id,
-      subjectId: parseInt(canonicalId.split('-')[1]) || 1,
-      topicId: null,
-      interactionType: 'flashcard',
-      referenceId: null,
-      durationSeconds,
-      accuracy: masteryRate,
-      difficulty: 'medium',
-      metadata: {
-        cardsStudied: reviewedCards.size,
+
+    if (hasAuthToken() && backendSetId) {
+      await apiClient.post(`/api/flashcards/${backendSetId}/practice`, {
+        cardsReviewed: reviewedCards.size,
         cardsMastered: masteredCards.size,
-        topics: topics.length > 0 ? topics : subject.topics.slice(0, 3),
-        totalCards: cards.length
-      }
-    });
-    
+        durationSeconds,
+        topicId: null,
+      });
+    }
+
     toast({
       title: "Session Recorded",
       description: `Reviewed ${reviewedCards.size} cards, mastered ${masteredCards.size}!`,
     });
-    
+
     // Reset session
     setCards([]);
     setSessionStartTime(null);

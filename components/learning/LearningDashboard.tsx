@@ -22,7 +22,7 @@ export function LearningDashboard({ userId, subjectId }: LearningDashboardProps)
   const { gaps, loading: gapsLoading } = useKnowledgeGaps(userId, subjectId)
   const { risks, loading: risksLoading } = useRiskDetection(userId)
 
-  if (dashboardLoading || gapsLoading || risksLoading) {
+  if (dashboardLoading && !dashboard) {
     return <div className="p-4">Loading learning insights...</div>
   }
 
@@ -95,6 +95,10 @@ export function LearningDashboard({ userId, subjectId }: LearningDashboardProps)
           </CardContent>
         </Card>
       </div>
+
+      {(gapsLoading || risksLoading) ? (
+        <p className="text-xs text-muted-foreground">Refreshing insights...</p>
+      ) : null}
 
       {/* Mastery Levels */}
       <Card>

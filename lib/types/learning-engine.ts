@@ -1,5 +1,5 @@
 /**
- * Learning Intelligence Engine Types
+ * Sapphire Lite Types
  * Defines the learner model structure and signal events for real-time demo
  */
 

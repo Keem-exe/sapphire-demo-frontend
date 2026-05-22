@@ -41,6 +41,7 @@ export default function ProfilePage() {
   const [quizHistory, setQuizHistory] = useState<any[]>([])
   const [flashcardHistory, setFlashcardHistory] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const { recordCompletion } = useQuizCompletion()
   const { recommendation } = useNextContent(user?.id || null, undefined)
 
@@ -53,19 +54,26 @@ export default function ProfilePage() {
     // Load analytics and intelligence data
     const loadData = async () => {
       try {
+        setIsLoading(true)
         const analyticsData = analyticsService.getAnalytics(user.user_id)
         const intelligenceData = intelligenceEngine.getLearningIntelligence(user.user_id, "csec-math")
         setAnalytics(analyticsData)
         setIntelligence(intelligenceData)
-        
-        // Load real quiz history from backend
-        const quizData = await quizHistoryService.getQuizHistory(user.user_id, 20)
-        const flashcardData = await quizHistoryService.getFlashcardHistory(user.user_id, 20)
+
+        // Render profile immediately; history can hydrate after first paint.
+        setIsLoading(false)
+        setHistoryLoading(true)
+
+        const [quizData, flashcardData] = await Promise.all([
+          quizHistoryService.getQuizHistory(user.user_id, 20),
+          quizHistoryService.getFlashcardHistory(user.user_id, 20),
+        ])
         setQuizHistory(quizData)
         setFlashcardHistory(flashcardData)
       } catch (error) {
         console.error("Failed to load profile data:", error)
       } finally {
+        setHistoryLoading(false)
         setIsLoading(false)
       }
     }
@@ -372,6 +380,7 @@ export default function ProfilePage() {
                 <CardHeader>
                   <CardTitle>Quiz History</CardTitle>
                   <CardDescription>Your recent quiz performances</CardDescription>
+                  {historyLoading ? <p className="text-xs text-muted-foreground">Syncing latest history...</p> : null}
                 </CardHeader>
                 <CardContent>
                   {getQuizHistory().length === 0 ? (

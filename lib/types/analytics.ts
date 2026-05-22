@@ -1,5 +1,5 @@
 /**
- * Learning Intelligence Engine - Type Definitions
+ * Sapphire Lite - Type Definitions
  * Tracks student learning signals and provides personalized learning actions
  */
 
@@ -14,7 +14,7 @@ export type LearningActivity =
 export type MasteryLevel = "beginner" | "developing" | "proficient" | "mastery";
 export type RiskLevel = "none" | "low" | "medium" | "high";
 
-// Student Learning Signals (Inputs to Intelligence Engine)
+// Student Learning Signals (Inputs to Sapphire Lite)
 
 export interface QuizPerformance {
   quiz_id: string;
@@ -74,7 +74,7 @@ export interface StudySession {
   completed: boolean;
 }
 
-// Personalized Learning Actions (Outputs from Intelligence Engine)
+// Personalized Learning Actions (Outputs from Sapphire Lite)
 
 export interface PersonalizedContent {
   recommended_topics: string[];
@@ -164,7 +164,7 @@ export interface StudentAnalytics {
   last_active: Date;
 }
 
-// Learning Intelligence Engine State
+// Sapphire Lite State
 
 export interface LearningIntelligence {
   user_id: number;

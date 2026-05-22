@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Brain, Video, Layers, ChevronRight } from "lucide-react"
 
 export function ToolsPanel() {
@@ -17,6 +18,7 @@ export function ToolsPanel() {
       icon: Brain,
       description: "Test your knowledge with AI-generated quizzes",
       color: "from-blue-500 to-cyan-500",
+      milestone: "1 sprint for confidence boost",
       path: `/workspace/${subjectId}/quiz`,
     },
     {
@@ -24,7 +26,8 @@ export function ToolsPanel() {
       name: "Study Reels",
       icon: Video,
       description: "Quick video summaries of key concepts",
-      color: "from-purple-500 to-pink-500",
+      color: "from-pink-500 to-rose-500",
+      milestone: "Finish this topic today",
       path: `/workspace/${subjectId}/reels`,
     },
     {
@@ -33,6 +36,7 @@ export function ToolsPanel() {
       icon: Layers,
       description: "Create and review flashcards for memorization",
       color: "from-green-500 to-emerald-500",
+      milestone: "2 sessions to 70% mastery",
       path: `/workspace/${subjectId}/flashcards`,
     },
   ]
@@ -46,7 +50,7 @@ export function ToolsPanel() {
       {/* Header */}
       <div className="p-4 border-b">
         <h2 className="text-lg font-semibold text-foreground">Study Tools</h2>
-        <p className="text-xs text-muted-foreground mt-1">Enhance your learning experience</p>
+        <p className="text-xs text-foreground/75 mt-1">Pick one action and stack a quick win.</p>
       </div>
 
       {/* Tools List */}
@@ -58,7 +62,7 @@ export function ToolsPanel() {
               <Card
                 key={tool.id}
                 onClick={() => handleToolClick(tool.path)}
-                className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 cursor-pointer overflow-hidden"
+                className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 cursor-pointer overflow-hidden focus-within:ring-2 focus-within:ring-primary/70"
               >
                 <div className={`h-1 bg-gradient-to-r ${tool.color}`} />
                 <CardContent className="p-4">
@@ -73,6 +77,9 @@ export function ToolsPanel() {
                         {tool.name}
                       </h3>
                       <p className="text-xs text-muted-foreground leading-relaxed">{tool.description}</p>
+                      <Badge variant="outline" className="mt-2 text-[11px]">
+                        {tool.milestone}
+                      </Badge>
                     </div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
                   </div>

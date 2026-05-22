@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { apiClient } from "@/lib/api-client";
+import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
 
 type Question = {
   id: string;
@@ -52,6 +54,8 @@ export default function QuizPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [backendQuizId, setBackendQuizId] = useState<number | null>(null);
+  const [backendMode, setBackendMode] = useState(false);
 
   // user inputs
   const [topics, setTopics] = useState<string[]>([]);
@@ -76,32 +80,69 @@ export default function QuizPage() {
     setResult(null);
     setFeedback(null);
     setQuestions([]);
+    setBackendQuizId(null);
+    setBackendMode(false);
 
     try {
-      const res = await fetch("/api/quiz", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+      if (hasAuthToken()) {
+        const { subjectId: backendSubjectId, topicIds } = await resolveBackendSubjectContext(
           subjectId,
-          topics,
+          topics.length ? topics : subject.topics.slice(0, 1)
+        );
+
+        const response: any = await apiClient.post("/api/ai/quiz", {
+          subjectId: backendSubjectId,
+          topics: topicIds,
           count,
-          difficulty,
-          types,
-        }),
-      });
+          difficulty: difficulty.charAt(0).toUpperCase() + difficulty.slice(1),
+          questionTypes: types,
+        });
 
-      const text = await res.text();
-      let json: any;
-      try {
-        json = JSON.parse(text);
-      } catch (err) {
-        console.error("Raw response:", text);
-        throw new Error(`Server returned non-JSON (status ${res.status})`);
+        const data = response?.data || response;
+        const backendQuestions = data?.questions || [];
+
+        setBackendMode(true);
+        setBackendQuizId(data?.quizId || null);
+
+        const mapped = backendQuestions.map((q: any) => ({
+          id: String(q.id),
+          question: q.questionText || "",
+          options: Array.isArray(q.options)
+            ? q.options.map((opt: any) => opt?.text ?? opt?.label ?? String(opt))
+            : [],
+          answer: "",
+          topic: (topics[0] || subject.topics[0] || "General"),
+          difficulty: (data?.quiz?.difficulty || difficulty).toString(),
+          type: q.questionType || "MCQ",
+        }));
+
+        setQuestions(mapped);
+      } else {
+        const res = await fetch("/api/quiz", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            subjectId,
+            topics,
+            count,
+            difficulty,
+            types,
+          }),
+        });
+
+        const text = await res.text();
+        let json: any;
+        try {
+          json = JSON.parse(text);
+        } catch (err) {
+          console.error("Raw response:", text);
+          throw new Error(`Server returned non-JSON (status ${res.status})`);
+        }
+
+        if (!res.ok) throw new Error(json.error || `Failed with ${res.status}`);
+
+        setQuestions(json.questions || []);
       }
-
-      if (!res.ok) throw new Error(json.error || `Failed with ${res.status}`);
-
-      setQuestions(json.questions || []);
     } catch (e: any) {
       setErr(e.message);
     } finally {
@@ -110,6 +151,38 @@ export default function QuizPage() {
   };
 
   const submit = async () => {
+    if (backendMode && backendQuizId) {
+      try {
+        const answersPayload: Record<string, string> = {};
+        questions.forEach((q) => {
+          if (answers[q.id] !== undefined) {
+            answersPayload[q.id] = answers[q.id];
+          }
+        });
+
+        const response: any = await apiClient.post(`/api/quiz/${backendQuizId}/submit`, {
+          answers: answersPayload,
+        });
+
+        const data = response?.data || response;
+        const score = data?.score ?? 0;
+        const total = data?.totalQuestions ?? questions.length;
+        setResult(score);
+
+        const percent = total > 0 ? (score / total) * 100 : 0;
+        let feedbackText = "";
+        if (percent >= 90) feedbackText = "Outstanding! You’re mastering this material.";
+        else if (percent >= 70) feedbackText = "Good job! Strengthen your weak topics to hit perfection.";
+        else if (percent >= 50) feedbackText = "You’re making progress. Review the questions you missed.";
+        else feedbackText = "Time to revisit fundamentals — try an easier difficulty next.";
+        setFeedback(feedbackText);
+      } catch (e: any) {
+        setErr(e.message || "Failed to submit quiz.");
+      }
+
+      return;
+    }
+
     let score = 0;
     for (const q of questions) {
       if (answers[q.id]?.trim().toLowerCase() === q.answer?.trim().toLowerCase()) score++;

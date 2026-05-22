@@ -37,6 +37,10 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
   const [newTag, setNewTag] = useState("")
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null)
   const [wordCount, setWordCount] = useState(0)
+  const [predictiveEnabled, setPredictiveEnabled] = useState(true)
+  const [predictiveText, setPredictiveText] = useState("")
+  const [predictiveLoading, setPredictiveLoading] = useState(false)
+  const [lastPredictedInput, setLastPredictedInput] = useState("")
 
   useEffect(() => {
     if (note) {
@@ -56,6 +60,67 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
     const words = content.trim().split(/\s+/).filter(w => w.length > 0).length;
     setWordCount(words);
   }, [content])
+
+  useEffect(() => {
+    if (!predictiveEnabled) {
+      setPredictiveText("")
+      return
+    }
+
+    const trimmed = content.trim()
+    if (trimmed.length < 24 || trimmed === lastPredictedInput) {
+      return
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setPredictiveLoading(true)
+        const context = content.slice(-500)
+
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subjectId: subjectId || "general",
+            message:
+              `Predictive typing mode. Continue this student note with one short continuation of 4-10 words. ` +
+              `Return only the continuation text with no quotes, bullets, or labels. ` +
+              `Note title: ${title || "Untitled"}. Current note: ${context}`,
+            history: [],
+          }),
+        })
+
+        if (!response.ok) {
+          setPredictiveText("")
+          return
+        }
+
+        const payload = await response.json()
+        const suggestion = String(payload?.reply || "")
+          .replace(/[\r\n]+/g, " ")
+          .trim()
+
+        if (!suggestion || suggestion.length < 3) {
+          setPredictiveText("")
+          return
+        }
+
+        if (content.toLowerCase().endsWith(suggestion.toLowerCase())) {
+          setPredictiveText("")
+          return
+        }
+
+        setLastPredictedInput(trimmed)
+        setPredictiveText(suggestion)
+      } catch {
+        setPredictiveText("")
+      } finally {
+        setPredictiveLoading(false)
+      }
+    }, 700)
+
+    return () => clearTimeout(timeout)
+  }, [content, title, subjectId, predictiveEnabled, lastPredictedInput])
 
   const handleSave = async () => {
     const preview =
@@ -163,6 +228,16 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
     }, 0)
   }
 
+  const acceptPrediction = () => {
+    if (!predictiveText) return
+
+    setContent((previous) => {
+      const needsSpace = previous.length > 0 && !/\s$/.test(previous)
+      return `${previous}${needsSpace ? " " : ""}${predictiveText}`
+    })
+    setPredictiveText("")
+  }
+
   if (!note && !isCreatingNote) {
     return (
       <div className="h-full flex items-center justify-center p-8">
@@ -204,7 +279,8 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
 
       {/* Formatting Toolbar */}
       <div className="p-2 border-b bg-muted/30">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
@@ -261,17 +337,57 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
           >
             <ListOrdered className="w-4 h-4" />
           </Button>
+          </div>
+          <Button
+            variant={predictiveEnabled ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPredictiveEnabled((value) => !value)}
+            className="h-8 text-xs rounded-md"
+          >
+            AI Predict
+          </Button>
         </div>
       </div>
 
       {/* Content Editor */}
       <div className="flex-1 overflow-auto p-4">
-        <Textarea
-          placeholder="Start writing your notes..."
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="min-h-full border-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none text-base leading-relaxed"
-        />
+        <div className="relative min-h-full">
+          {predictiveEnabled && predictiveText ? (
+            <div className="pointer-events-none absolute inset-0 whitespace-pre-wrap break-words rounded-md p-3 text-base leading-relaxed">
+              <span className="opacity-0">{content}</span>
+              <span className="text-muted-foreground/50">{`${content && !/\s$/.test(content) ? " " : ""}${predictiveText}`}</span>
+            </div>
+          ) : null}
+
+          <Textarea
+            placeholder="Start writing your notes..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Tab" && predictiveText) {
+                e.preventDefault()
+                acceptPrediction()
+              }
+            }}
+            className="min-h-full border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 resize-none text-base leading-relaxed"
+          />
+        </div>
+        {predictiveEnabled ? (
+          <div className="mt-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            {predictiveLoading ? (
+              <span>AI is thinking of your next phrase...</span>
+            ) : predictiveText ? (
+              <div className="flex items-center justify-between gap-2">
+                <span>Press Tab to accept inline suggestion.</span>
+                <Button size="sm" variant="secondary" onClick={acceptPrediction} className="h-6 text-[11px]">
+                  Accept (Tab)
+                </Button>
+              </div>
+            ) : (
+              <span>Keep typing. AI suggestions appear as you write.</span>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* Tags Section */}

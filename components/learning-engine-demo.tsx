@@ -15,6 +15,21 @@ export function LearningEngineDemo() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [recentSignals, setRecentSignals] = useState<SignalEvent[]>([])
 
+  const getMasteryPercent = (value: unknown): number => {
+    const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""))
+    if (!Number.isFinite(parsed)) return 0
+
+    let normalized = parsed
+    if (normalized > 1 && normalized <= 100) {
+      normalized = normalized / 100
+    }
+
+    if (normalized < 0) normalized = 0
+    if (normalized > 1) normalized = 1
+
+    return Math.round(normalized * 100)
+  }
+
   useEffect(() => {
     // Load Andrew Lee's profile
     fetch('/demo/andrew_lee_profile.json')
@@ -121,7 +136,7 @@ export function LearningEngineDemo() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <Sparkles className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
-          <p className="text-muted-foreground">Loading Learning Intelligence Engine...</p>
+          <p className="text-muted-foreground">Loading Sapphire Lite...</p>
         </div>
       </div>
     )
@@ -133,7 +148,7 @@ export function LearningEngineDemo() {
       <div className="max-w-7xl mx-auto mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Brain className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">Learning Intelligence Engine Demo</h1>
+          <h1 className="text-3xl font-bold">Sapphire Lite Demo</h1>
         </div>
         <p className="text-muted-foreground">
           Watch the engine analyze {profile.name}'s learning in real-time: <strong>Signal → Inference → Action</strong>
@@ -214,10 +229,12 @@ export function LearningEngineDemo() {
             <CardDescription>Live engine state (what the AI knows)</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[600px]">
-              <pre className="text-xs bg-black/90 text-green-400 p-4 rounded-lg font-mono overflow-x-auto">
-                {JSON.stringify(learnerModel, null, 2)}
-              </pre>
+            <ScrollArea className="h-[600px] w-full">
+              <div className="overflow-x-auto">
+                <pre className="min-w-max text-xs bg-black/90 text-green-400 p-4 rounded-lg font-mono whitespace-pre">
+                  {JSON.stringify(learnerModel, null, 2)}
+                </pre>
+              </div>
             </ScrollArea>
           </CardContent>
         </Card>
@@ -265,20 +282,27 @@ export function LearningEngineDemo() {
                 <div className="space-y-2">
                   {learnerModel.mastery.map((skill, idx) => (
                     <div key={idx}>
+                      {(() => {
+                        const masteryPercent = getMasteryPercent(skill.level)
+                        return (
+                          <>
                       <div className="flex justify-between text-sm mb-1">
                         <span>{skill.skill}</span>
-                        <span className="font-mono">{(skill.level * 100).toFixed(0)}%</span>
+                        <span className="font-mono">{masteryPercent}%</span>
                       </div>
                       <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                         <div 
                           className={`h-full transition-all ${
-                            skill.level >= 0.7 ? 'bg-green-500' :
-                            skill.level >= 0.4 ? 'bg-yellow-500' :
+                            masteryPercent >= 70 ? 'bg-green-500' :
+                            masteryPercent >= 40 ? 'bg-yellow-500' :
                             'bg-red-500'
                           }`}
-                          style={{ width: `${skill.level * 100}%` }}
+                          style={{ width: `${masteryPercent}%` }}
                         />
                       </div>
+                          </>
+                        )
+                      })()}
                     </div>
                   ))}
                 </div>

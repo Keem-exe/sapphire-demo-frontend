@@ -1,5 +1,5 @@
 /**
- * Learning Intelligence Engine - Recommendation System
+ * Sapphire Lite - Recommendation System
  * Provides adaptive learning recommendations based on performance data
  */
 
@@ -16,7 +16,7 @@ import type {
 } from "@/lib/types/analytics";
 import { analyticsService } from "./analytics";
 
-class IntelligenceEngineService {
+class SapphireLiteService {
   /**
    * Get personalized content recommendations
    */
@@ -345,4 +345,5 @@ class IntelligenceEngineService {
   }
 }
 
-export const intelligenceEngine = new IntelligenceEngineService();
+export const sapphireLite = new SapphireLiteService();
+export const intelligenceEngine = sapphireLite;

@@ -7,8 +7,24 @@ export type SubjectId =
   | "cape-phys"
   | "cape-bio";
 
+export interface SubjectSyllabus {
+  majorTopics: string[]
+  goals: string[]
+  skillWeighting: {
+    algorithmic: number
+    conceptual: number
+    reasoning: number
+  }
+}
+
+export interface SubjectDefinition {
+  name: string
+  topics: string[]
+  syllabus?: SubjectSyllabus
+}
+
 // Map of subjects with display names and core topic arrays
-export const SUBJECTS: Record<SubjectId, { name: string; topics: string[] }> = {
+export const SUBJECTS: Record<SubjectId, SubjectDefinition> = {
   "csec-math": {
     name: "Mathematics",
     topics: [
@@ -20,6 +36,26 @@ export const SUBJECTS: Record<SubjectId, { name: string; topics: string[] }> = {
       "Trigonometry",
       "Statistics",
     ],
+    syllabus: {
+      majorTopics: [
+        "Number Theory & Computation",
+        "Consumer Arithmetic",
+        "Sets",
+        "Measurement",
+        "Algebra 1",
+        "Graphs",
+      ],
+      goals: [
+        "Build numerical confidence",
+        "Handle real-life math (money, units, estimation)",
+        "Understand basic algebra + graphs",
+      ],
+      skillWeighting: {
+        algorithmic: 40,
+        conceptual: 30,
+        reasoning: 30,
+      },
+    },
   },
   "csec-chem": {
     name: "Chemistry",

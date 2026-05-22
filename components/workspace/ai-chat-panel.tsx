@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
+import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
+import { hasAuthToken, resolveBackendSubject } from "@/lib/services/backend-subject-map"
 
 interface AiChatPanelProps {
   subjectName: string // you already have this
@@ -36,6 +39,28 @@ async function handleSend() {
   setLoading(true)
 
   try {
+    if (hasAuthToken()) {
+      const subjectKey = (Object.entries(SUBJECTS).find(
+        ([, value]) => value.name.toLowerCase() === (subjectName || "").toLowerCase()
+      )?.[0] || "") as SubjectId | ""
+
+      if (!subjectKey) {
+        throw new Error("Subject not found for chat.")
+      }
+
+      const backendSubject = await resolveBackendSubject(subjectKey)
+
+      const response: any = await apiClient.post("/api/ai/chat", {
+        subjectId: backendSubject.subjectId,
+        message: cleanedMessage,
+      })
+
+      const data = response?.data || response
+      const reply = data?.response || "Sorry, I couldn’t generate a response."
+      setMessages((m) => [...m, { role: "assistant", content: reply }])
+      return
+    }
+
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

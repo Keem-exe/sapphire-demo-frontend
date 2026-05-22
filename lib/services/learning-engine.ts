@@ -1,5 +1,5 @@
 /**
- * Learning Intelligence Engine Service
+ * Sapphire Lite Service
  * Uses Gemini API to update learner model in real-time based on student signals
  */
 
@@ -28,13 +28,48 @@ export class LearningEngineService {
         temperature: 0.3,
         maxOutputTokens: 4000,
       },
-      systemInstruction: `You are Sapphire OS Learning Intelligence Engine.
+      systemInstruction: `You are Sapphire Lite, the personalized intelligence engine for Sapphire.
 Your job: update the learner model from new learning signals.
 Output ONLY valid JSON matching the schema.
 No prose, no markdown, no code fences.
 Be conservative: don't over-infer from one event.
 Track mastery, recall strength, misconceptions, pacing recommendation, motivation state, and risk alerts.`
     })
+  }
+
+  private toFiniteNumber(value: unknown, fallback: number = 0): number {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : fallback
+    }
+    const parsed = Number.parseFloat(String(value ?? ""))
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  private normalizeMasteryLevel(levelValue: unknown): number {
+    let level = this.toFiniteNumber(levelValue, 0)
+
+    // Accept either 0-1 or 0-100 scale from model output.
+    if (level > 1 && level <= 100) {
+      level = level / 100
+    }
+
+    if (level < 0) level = 0
+    if (level > 1) level = 1
+    return level
+  }
+
+  private normalizeLearnerModel(model: LearnerModel): LearnerModel {
+    const safeMastery = Array.isArray((model as any)?.mastery)
+      ? (model as any).mastery.map((entry: any) => ({
+          skill: String(entry?.skill || entry?.topic || "unknown_skill"),
+          level: this.normalizeMasteryLevel(entry?.level ?? entry?.mastery ?? entry?.mastery_score),
+        }))
+      : []
+
+    return {
+      ...model,
+      mastery: safeMastery,
+    }
   }
 
   /**
@@ -108,7 +143,7 @@ Return JSON only.`
         throw new Error("No valid JSON found in response")
       }
 
-      const updatedModel: LearnerModel = JSON.parse(jsonMatch[0])
+      const updatedModel: LearnerModel = this.normalizeLearnerModel(JSON.parse(jsonMatch[0]))
       
       // Save to localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedModel))
@@ -127,7 +162,7 @@ Return JSON only.`
     const stored = localStorage.getItem(STORAGE_KEY)
     if (!stored) return null
     try {
-      return JSON.parse(stored)
+      return this.normalizeLearnerModel(JSON.parse(stored))
     } catch {
       return null
     }
@@ -236,9 +271,11 @@ export function getLearningEngine(): LearningEngineService {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY || ""
     if (!apiKey) {
       console.error("Missing NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY environment variable")
-      throw new Error("NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY is required for Learning Engine. Please add it to .env.local")
+      throw new Error("NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY is required for Sapphire Lite. Please add it to .env.local")
     }
     engineInstance = new LearningEngineService(apiKey)
   }
   return engineInstance
 }
+
+export const getSapphireLiteEngine = getLearningEngine
