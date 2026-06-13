@@ -123,6 +123,11 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
   }, [content, title, subjectId, predictiveEnabled, lastPredictedInput])
 
   const handleSave = async () => {
+    if (!title.trim() && !content.trim()) {
+      toast({ title: "Nothing to save", description: "Add a title or some content before saving.", variant: "destructive" })
+      return
+    }
+
     const preview =
       content
         .slice(0, 100)

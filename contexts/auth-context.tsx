@@ -86,31 +86,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       // All other users must authenticate with the backend
-      const response = await apiClient.post<{ success: boolean; data: { user: User; token: string } }>("/api/auth/login", {
-        email,
-        password,
-      })
-      
+      const response = await apiClient.post<{
+        success: boolean;
+        data: { user: User; token: string; refreshToken?: string; redirectToLearningStyle?: boolean }
+      }>("/api/auth/login", { email, password })
+
       console.log("Backend response:", response)
-      
-      // Backend returns {success: true, data: {user: {...}, token: "..."}}
-      const userData = response.data?.user || response.user || response as any as User
-      const token = response.data?.token || response.token
-      
+
+      // Backend returns {success: true, data: {user: {...}, token: "...", refreshToken: "..."}}
+      const userData = response.data?.user || (response as any).user || response as any as User
+      const token = response.data?.token || (response as any).token
+      const refreshToken = response.data?.refreshToken
+      const redirectToLearningStyle = response.data?.redirectToLearningStyle
+
       if (!userData || !userData.email) {
         console.error("Invalid user data:", userData, "Full response:", response)
         throw new Error("Invalid response from server. Please check the backend is configured correctly.")
       }
-      
+
       setUser(userData)
       localStorage.setItem("user", JSON.stringify(userData))
-      
-      if (token) {
-        localStorage.setItem("authToken", token)
-      }
 
-      // Redirect based on whether user has selected level
-      if (!userData.level) {
+      if (token) localStorage.setItem("authToken", token)
+      if (refreshToken) localStorage.setItem("refreshToken", refreshToken)
+
+      // Redirect based on whether user needs to set learning style or level
+      if (redirectToLearningStyle || !userData.level) {
         router.push("/select-level")
       } else {
         router.push("/dashboard")
@@ -184,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     localStorage.removeItem("user")
     localStorage.removeItem("authToken")
+    localStorage.removeItem("refreshToken")
     localStorage.removeItem("selectedLevel")
     localStorage.removeItem("learningStyle")
     router.push("/")

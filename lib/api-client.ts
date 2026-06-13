@@ -3,37 +3,100 @@
  * Handles requests to the deployed backend API
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
 
 export class ApiClient {
   private baseUrl: string;
+  private isRefreshing = false;
 
   constructor(baseUrl: string = BACKEND_URL) {
-    this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
-  /**
-   * Get authentication headers
-   */
   private getAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-
-    // Get token from localStorage
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('authToken');
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      if (token) headers['Authorization'] = `Bearer ${token}`;
     }
-
     return headers;
   }
 
-  /**
-   * Make a GET request
-   */
+  private async tryRefreshToken(): Promise<boolean> {
+    if (this.isRefreshing) return false;
+    if (typeof window === 'undefined') return false;
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return false;
+
+    this.isRefreshing = true;
+    try {
+      const res = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${refreshToken}`,
+        },
+      });
+      if (!res.ok) return false;
+      const body = await res.json();
+      const newToken = body?.data?.token;
+      if (!newToken) return false;
+      localStorage.setItem('authToken', newToken);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  private mapErrorStatus(status: number, body: any): Error {
+    if (status === 429) {
+      const err: any = new Error('Too many requests — please slow down and try again shortly.');
+      err.status = 429;
+      return err;
+    }
+    if (status === 503) {
+      const err: any = new Error('AI features are temporarily unavailable.');
+      err.status = 503;
+      return err;
+    }
+    const requestId = body?.requestId;
+    if (status >= 500) {
+      const msg = requestId
+        ? `Something went wrong. Reference: ${requestId}`
+        : (body?.error || body?.message || `Server error ${status}`);
+      const err: any = new Error(msg);
+      err.status = status;
+      if (requestId) err.requestId = requestId;
+      return err;
+    }
+    const msg = body?.error || body?.message || body?.detail || `API Error: ${status}`;
+    const err: any = new Error(msg);
+    err.status = status;
+    return err;
+  }
+
+  private async fetchWithRetry(url: string, options: RequestInit, retried = false): Promise<Response> {
+    const res = await fetch(url, { ...options, headers: this.getAuthHeaders() });
+
+    if (res.status === 401 && !retried) {
+      const refreshed = await this.tryRefreshToken();
+      if (refreshed) {
+        return this.fetchWithRetry(url, options, true);
+      }
+      // Refresh failed — clear tokens so the next request doesn't loop
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+      }
+    }
+
+    return res;
+  }
+
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
     if (params) {
@@ -44,94 +107,76 @@ export class ApiClient {
       });
     }
 
-    const headers = this.getAuthHeaders();
-    
-    // Debug logging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('API GET Request:', {
-        url: url.toString(),
-        hasToken: !!headers['Authorization'],
-        headers
-      });
+    const res = await this.fetchWithRetry(url.toString(), { method: 'GET' });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw this.mapErrorStatus(res.status, body);
     }
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => response.statusText);
-      console.error('API Error:', response.status, errorText);
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
+    return res.json();
   }
 
-  /**
-   * Make a POST request
-   */
   async post<T>(endpoint: string, data?: any): Promise<T> {
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const res = await this.fetchWithRetry(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
-        headers: this.getAuthHeaders(),
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText }));
-        const apiError: any = new Error(error.error || error.message || error.detail || `API Error: ${response.status}`);
-        apiError.status = response.status;
-        apiError.statusText = response.statusText;
-        throw apiError;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw this.mapErrorStatus(res.status, body);
       }
 
-      return response.json();
+      return res.json();
     } catch (error: any) {
-      // If it's already an API error with status, re-throw it
-      if (error.status) {
-        throw error;
-      }
-      // Otherwise it's a network error (fetch failed)
+      if (error.status) throw error;
       const networkError: any = new Error(`Failed to connect to backend at ${this.baseUrl}. Please check your connection.`);
       networkError.name = 'NetworkError';
       throw networkError;
     }
   }
 
-  /**
-   * Make a PUT request
-   */
   async put<T>(endpoint: string, data?: any): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: 'PUT',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
+    try {
+      const res = await this.fetchWithRetry(`${this.baseUrl}${endpoint}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
 
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw this.mapErrorStatus(res.status, body);
+      }
+
+      return res.json();
+    } catch (error: any) {
+      if (error.status) throw error;
+      const networkError: any = new Error(`Failed to connect to backend at ${this.baseUrl}. Please check your connection.`);
+      networkError.name = 'NetworkError';
+      throw networkError;
     }
-
-    return response.json();
   }
 
-  /**
-   * Make a DELETE request
-   */
   async delete<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders(),
-    });
+    try {
+      const res = await this.fetchWithRetry(`${this.baseUrl}${endpoint}`, {
+        method: 'DELETE',
+      });
 
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw this.mapErrorStatus(res.status, body);
+      }
+
+      return res.json();
+    } catch (error: any) {
+      if (error.status) throw error;
+      const networkError: any = new Error(`Failed to connect to backend at ${this.baseUrl}. Please check your connection.`);
+      networkError.name = 'NetworkError';
+      throw networkError;
     }
-
-    return response.json();
   }
 }
 

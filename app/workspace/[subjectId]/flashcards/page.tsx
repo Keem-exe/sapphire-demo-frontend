@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { apiClient } from "@/lib/api-client";
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
 import { useToast } from "@/hooks/use-toast";
+import { Trophy } from "lucide-react";
 
 // Map legacy/alias route IDs to canonical SUBJECTS keys
 const normalizeSubjectId = (id: string): SubjectId => {
@@ -61,8 +63,47 @@ export default function FlashcardsPage() {
   const [masteredCards, setMasteredCards] = useState<Set<string>>(new Set());
   const [reviewedCards, setReviewedCards] = useState<Set<string>>(new Set());
   const [backendSetId, setBackendSetId] = useState<number | null>(null);
+  const [practiceResult, setPracticeResult] = useState<{
+    cardsReviewed: number;
+    cardsMastered: number;
+    accuracy: number;
+    percentageScore: number;
+    passed: boolean;
+    durationSeconds: number;
+  } | null>(null);
 
   if (!subject) return <div className="p-6">Unknown subject.</div>;
+
+  // Post-practice summary screen
+  if (practiceResult) {
+    const pct = Math.round(practiceResult.percentageScore ?? (practiceResult.accuracy * 100));
+    return (
+      <div className="p-8 max-w-md mx-auto space-y-6">
+        <Card className={practiceResult.passed ? "border-green-400 bg-green-50" : "border-yellow-400 bg-yellow-50"}>
+          <CardContent className="p-6 flex items-center gap-4">
+            <Trophy className={`w-10 h-10 flex-shrink-0 ${practiceResult.passed ? "text-green-600" : "text-yellow-500"}`} />
+            <div>
+              <p className="text-3xl font-bold">{pct}%</p>
+              <p className="text-sm text-muted-foreground">
+                {practiceResult.cardsMastered} / {practiceResult.cardsReviewed} cards mastered
+              </p>
+              <Badge className={`mt-1 ${practiceResult.passed ? "bg-green-600" : "bg-yellow-500"}`}>
+                {practiceResult.passed ? "Session complete!" : "Keep practising"}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+        <div className="text-sm text-muted-foreground space-y-1">
+          <p>Cards reviewed: <span className="font-semibold text-foreground">{practiceResult.cardsReviewed}</span></p>
+          <p>Cards mastered: <span className="font-semibold text-foreground">{practiceResult.cardsMastered}</span></p>
+          <p>Duration: <span className="font-semibold text-foreground">{Math.round(practiceResult.durationSeconds / 60)}m {practiceResult.durationSeconds % 60}s</span></p>
+        </div>
+        <Button onClick={() => { setPracticeResult(null); setCards([]); }}>
+          Start a New Session
+        </Button>
+      </div>
+    );
+  }
 
   const toggle = (t: string) =>
     setTopics((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
@@ -73,6 +114,7 @@ export default function FlashcardsPage() {
       setLoading(true);
       setCards([]);
       setBackendSetId(null);
+      setPracticeResult(null);
 
       if (hasAuthToken()) {
         const selectedTopics = topics.length ? topics : subject.topics.slice(0, 3);
@@ -139,42 +181,75 @@ export default function FlashcardsPage() {
 
 const handleCardReview = (cardId: string, mastered: boolean) => {
   setReviewedCards(prev => new Set(prev).add(cardId));
-  if (mastered) {
-    setMasteredCards(prev => new Set(prev).add(cardId));
+  // Client-side guard: only mark mastered cards that have been reviewed
+  if (mastered && reviewedCards.has(cardId) || mastered) {
+    setMasteredCards(prev => {
+      const next = new Set(prev);
+      next.add(cardId);
+      // Enforce: masteredCards cannot exceed reviewedCards
+      const reviewed = new Set(reviewedCards);
+      reviewed.add(cardId);
+      if (next.size > reviewed.size) next.delete(cardId);
+      return next;
+    });
   }
 };
 
 const handleEndSession = async () => {
-  if (!user || !sessionStartTime || reviewedCards.size === 0) return;
+  if (!sessionStartTime || reviewedCards.size === 0) return;
+
+  const durationSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
+  const cardsReviewed = reviewedCards.size;
+  // Enforce: cardsMastered cannot exceed cardsReviewed
+  const cardsMastered = Math.min(masteredCards.size, cardsReviewed);
 
   try {
-    const durationSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
-    const masteryRate = masteredCards.size / reviewedCards.size;
-
     if (hasAuthToken() && backendSetId) {
-      await apiClient.post(`/api/flashcards/${backendSetId}/practice`, {
-        cardsReviewed: reviewedCards.size,
-        cardsMastered: masteredCards.size,
+      const response: any = await apiClient.post(`/api/flashcards/${backendSetId}/practice`, {
+        cardsReviewed,
+        cardsMastered,
         durationSeconds,
         topicId: null,
       });
+
+      const summary = response?.data || response;
+      setPracticeResult({
+        cardsReviewed: summary.cardsReviewed ?? cardsReviewed,
+        cardsMastered: summary.cardsMastered ?? cardsMastered,
+        accuracy: summary.accuracy ?? (cardsReviewed > 0 ? cardsMastered / cardsReviewed : 0),
+        percentageScore: summary.percentageScore ?? (cardsReviewed > 0 ? (cardsMastered / cardsReviewed) * 100 : 0),
+        passed: summary.passed ?? cardsMastered >= cardsReviewed * 0.7,
+        durationSeconds: summary.durationSeconds ?? durationSeconds,
+      });
+    } else {
+      // No backend — show local summary
+      setPracticeResult({
+        cardsReviewed,
+        cardsMastered,
+        accuracy: cardsReviewed > 0 ? cardsMastered / cardsReviewed : 0,
+        percentageScore: cardsReviewed > 0 ? (cardsMastered / cardsReviewed) * 100 : 0,
+        passed: cardsMastered >= cardsReviewed * 0.7,
+        durationSeconds,
+      });
     }
 
-    toast({
-      title: "Session Recorded",
-      description: `Reviewed ${reviewedCards.size} cards, mastered ${masteredCards.size}!`,
-    });
-
-    // Reset session
-    setCards([]);
     setSessionStartTime(null);
     setMasteredCards(new Set());
     setReviewedCards(new Set());
   } catch (error) {
     console.error('Failed to record flashcard session:', error);
+    // Still show a local summary on error
+    setPracticeResult({
+      cardsReviewed,
+      cardsMastered,
+      accuracy: cardsReviewed > 0 ? cardsMastered / cardsReviewed : 0,
+      percentageScore: cardsReviewed > 0 ? (cardsMastered / cardsReviewed) * 100 : 0,
+      passed: cardsMastered >= cardsReviewed * 0.7,
+      durationSeconds,
+    });
     toast({
       title: "Note",
-      description: "Session not saved to your profile. Please check your connection.",
+      description: "Session results shown but not saved to your profile. Please check your connection.",
       variant: "destructive"
     });
   }

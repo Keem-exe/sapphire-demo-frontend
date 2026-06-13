@@ -21,6 +21,9 @@ import {
   ChevronDown,
   Clock,
 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { apiClient } from "@/lib/api-client"
+import { hasAuthToken } from "@/lib/services/backend-subject-map"
 
 type ReelItem = {
   videoId: string
@@ -36,6 +39,9 @@ type ReelItem = {
   viewCountLabel: string
   embedUrl: string
   watchUrl: string
+  // Backend-provided toggle state (present when reels come from the authenticated backend)
+  isLiked?: boolean
+  isSaved?: boolean
 }
 
 const SUBJECT_ICONS: Record<SubjectId, string> = {
@@ -130,6 +136,7 @@ export default function ReelsPage() {
   const [availableTopics, setAvailableTopics] = useState<string[]>(subject.topics)
   const [likedReels, setLikedReels] = useState<Set<string>>(new Set())
   const [savedReels, setSavedReels] = useState<Set<string>>(new Set())
+  const { toast } = useToast()
 
   useEffect(() => {
     if (rawSubjectId && rawSubjectId !== subjectId) {
@@ -172,12 +179,16 @@ export default function ReelsPage() {
           throw new Error(payload.error || "Failed to load study reels.")
         }
 
-        const items = Array.isArray(payload.items) ? payload.items : []
+        const items: ReelItem[] = Array.isArray(payload.items) ? payload.items : []
         const topicOptions = Array.isArray(payload.availableTopics) ? payload.availableTopics : subject.topics
         setAvailableTopics(topicOptions)
         setReels(items)
         setCurrentReelIndex(0)
         setIsPlaying(items.length > 0)
+
+        // Initialise liked/saved state from backend-provided booleans
+        setLikedReels(new Set(items.filter(r => r.isLiked).map(r => r.videoId)))
+        setSavedReels(new Set(items.filter(r => r.isSaved).map(r => r.videoId)))
 
         if (!items.length) {
           if (selectedTopic !== ALL_TOPICS) {
@@ -229,30 +240,60 @@ export default function ReelsPage() {
     })
   }
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!currentReel) return
+    const wasLiked = likedReels.has(currentReel.videoId)
+    // Optimistic update
     setLikedReels((previous) => {
       const next = new Set(previous)
-      if (next.has(currentReel.videoId)) {
-        next.delete(currentReel.videoId)
-      } else {
-        next.add(currentReel.videoId)
-      }
+      if (next.has(currentReel.videoId)) next.delete(currentReel.videoId)
+      else next.add(currentReel.videoId)
       return next
     })
+    if (hasAuthToken()) {
+      try {
+        await apiClient.post(`/api/reels/${currentReel.videoId}/like`)
+      } catch (e: any) {
+        // Revert optimistic update on error
+        setLikedReels((previous) => {
+          const next = new Set(previous)
+          if (wasLiked) next.add(currentReel.videoId)
+          else next.delete(currentReel.videoId)
+          return next
+        })
+        if (e.status === 404) {
+          toast({ title: "Reel not found", description: "This reel is no longer available.", variant: "destructive" })
+        }
+      }
+    }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!currentReel) return
+    const wasSaved = savedReels.has(currentReel.videoId)
+    // Optimistic update
     setSavedReels((previous) => {
       const next = new Set(previous)
-      if (next.has(currentReel.videoId)) {
-        next.delete(currentReel.videoId)
-      } else {
-        next.add(currentReel.videoId)
-      }
+      if (next.has(currentReel.videoId)) next.delete(currentReel.videoId)
+      else next.add(currentReel.videoId)
       return next
     })
+    if (hasAuthToken()) {
+      try {
+        await apiClient.post(`/api/reels/${currentReel.videoId}/save`)
+      } catch (e: any) {
+        // Revert optimistic update on error
+        setSavedReels((previous) => {
+          const next = new Set(previous)
+          if (wasSaved) next.add(currentReel.videoId)
+          else next.delete(currentReel.videoId)
+          return next
+        })
+        if (e.status === 404) {
+          toast({ title: "Reel not found", description: "This reel is no longer available.", variant: "destructive" })
+        }
+      }
+    }
   }
 
   const handleShare = async () => {
