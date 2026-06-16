@@ -8,9 +8,12 @@ import { seedDemoUserData } from "@/lib/services/seed-demo-data"
 
 interface User {
   user_id: number
+  id?: number
   email: string
   first_name?: string
   last_name?: string
+  firstName?: string
+  lastName?: string
   age?: number
   gender?: string
   accountType?: string
@@ -163,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         firstName,
         lastName,
         age,
-        gender: gender?.toLowerCase(),
+        gender,
         accountType: accountType?.toLowerCase(),
       })
 
