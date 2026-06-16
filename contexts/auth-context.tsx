@@ -159,11 +159,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }>("/api/auth/signup", {
         email,
         password,
-        first_name: firstName,
-        last_name: lastName,
+        confirmPassword: password,
+        firstName,
+        lastName,
         age,
-        gender,
-        accountType,
+        gender: gender?.toLowerCase(),
+        accountType: accountType?.toLowerCase(),
       })
 
       // Support both {success, data: {user, token}} and flat {user, token}
