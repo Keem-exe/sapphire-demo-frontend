@@ -44,9 +44,9 @@ export default function SignUpPage() {
     try {
       await register(email, password, firstName, lastName, age, gender, accountType)
       router.push("/select-level")
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      setError("Registration failed. Please try again.")
+      setError(err.message || "Registration failed. Please try again.")
     } finally {
       setIsLoading(false)
     }

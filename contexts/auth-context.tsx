@@ -152,9 +152,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, firstName?: string, lastName?: string, age?: number, gender?: string, accountType?: string) => {
     try {
       setIsLoading(true)
-      
-      // Call backend register endpoint
-      const response = await apiClient.post<{ user: User; token?: string }>("/auth/register", {
+
+      const response = await apiClient.post<{
+        success: boolean;
+        data: { user: User; token: string; refreshToken?: string }
+      }>("/api/auth/signup", {
         email,
         password,
         first_name: firstName,
@@ -163,19 +165,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         gender,
         accountType,
       })
-      
-      const userData = response.user
+
+      // Support both {success, data: {user, token}} and flat {user, token}
+      const userData = response.data?.user ?? (response as any).user
+      const token = response.data?.token ?? (response as any).token
+      const refreshToken = response.data?.refreshToken ?? (response as any).refreshToken
+
+      if (!userData || !userData.email) {
+        throw new Error("Invalid response from server — no user returned.")
+      }
+
       setUser(userData)
       localStorage.setItem("user", JSON.stringify(userData))
-      
-      if (response.token) {
-        localStorage.setItem("authToken", response.token)
-      }
+      if (token) localStorage.setItem("authToken", token)
+      if (refreshToken) localStorage.setItem("refreshToken", refreshToken)
 
       router.push("/select-level")
     } catch (error: any) {
       console.error("Registration error:", error)
-      throw new Error(error.message || "Registration failed")
+      throw new Error(error.message || "Registration failed. Please try again.")
     } finally {
       setIsLoading(false)
     }
