@@ -151,6 +151,7 @@ export default function ReelsPage() {
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [showSaved, setShowSaved] = useState(false)
   const viewedReels = useRef<Set<number>>(new Set())
   const { toast } = useToast()
 
@@ -199,7 +200,7 @@ export default function ReelsPage() {
       setError("Study reels need a Sapphire account. Please sign in with a registered account.")
       return
     }
-    if (backendSubjectId == null) return
+    if (backendSubjectId == null && !showSaved) return
     let cancelled = false
 
     async function loadReels() {
@@ -210,24 +211,26 @@ export default function ReelsPage() {
 
       try {
         const topic = backendTopics.find((t) => t.name === selectedTopic)
-        const response: any = await apiClient.get(`/api/subject/${backendSubjectId}/reels`, {
-          topicId: selectedTopic !== ALL_TOPICS ? topic?.id : undefined,
-          limit: 18,
-          page: 1,
-        })
+        const response: any = showSaved
+          ? await apiClient.get(`/api/reels/saved`)
+          : await apiClient.get(`/api/subject/${backendSubjectId}/reels`, {
+              topicId: selectedTopic !== ALL_TOPICS ? topic?.id : undefined,
+              limit: 18,
+              page: 1,
+            })
         if (cancelled) return
 
         const data = response?.data || response
         const items: ReelItem[] = Array.isArray(data?.reels) ? data.reels : []
         setReels(items)
-        setHasMore(!!data?.hasMore)
-        setTopicFallback(!!data?.topicFallback)
+        setHasMore(!showSaved && !!data?.hasMore)
+        setTopicFallback(!showSaved && !!data?.topicFallback)
         setCurrentReelIndex(0)
         setIsPlaying(items.length > 0)
         setLikedReels(new Set(items.filter((r) => r.isLiked).map((r) => r.id)))
         setSavedReels(new Set(items.filter((r) => r.isSaved).map((r) => r.id)))
 
-        if (!items.length) setError("No videos matched this subject right now. Try again in a moment.")
+        if (!items.length && !showSaved) setError("No videos matched this subject right now. Try again in a moment.")
       } catch (loadError: unknown) {
         if (cancelled) return
         setReels([])
@@ -241,7 +244,7 @@ export default function ReelsPage() {
     return () => {
       cancelled = true
     }
-  }, [backendSubjectId, backendTopics, selectedTopic, reloadKey])
+  }, [backendSubjectId, backendTopics, selectedTopic, reloadKey, showSaved])
 
   const loadMore = async () => {
     if (backendSubjectId == null || loadingMore) return
@@ -342,6 +345,11 @@ export default function ReelsPage() {
     if (hasAuthToken()) {
       try {
         await apiClient.post(`/api/reels/${currentReel.id}/save`)
+        if (showSaved && wasSaved) {
+          const removedId = currentReel.id
+          setReels((prev) => prev.filter((r) => r.id !== removedId))
+          setCurrentReelIndex((i) => Math.max(0, Math.min(i, reels.length - 2)))
+        }
       } catch (e: any) {
         // Revert optimistic update on error
         setSavedReels((previous) => {
@@ -592,6 +600,25 @@ export default function ReelsPage() {
                     </div>
                     <Badge variant="secondary">{subject.topics.length}</Badge>
                   </div>
+                  <div className="flex gap-2 mb-3">
+                    <Button
+                      variant={!showSaved ? "default" : "outline"}
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => setShowSaved(false)}
+                    >
+                      All reels
+                    </Button>
+                    <Button
+                      variant={showSaved ? "default" : "outline"}
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => setShowSaved(true)}
+                    >
+                      <Bookmark className="w-3 h-3 mr-1" />
+                      Saved
+                    </Button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {topicButtons.map((topic) => (
                       <Button
@@ -599,6 +626,7 @@ export default function ReelsPage() {
                         variant={selectedTopic === topic ? "default" : "outline"}
                         size="sm"
                         className="rounded-full"
+                        disabled={showSaved}
                         onClick={() => setSelectedTopic(topic)}
                       >
                         {topic}
@@ -610,7 +638,7 @@ export default function ReelsPage() {
 
               <Card className="border-2">
                 <div className="p-4 border-b">
-                  <h3 className="text-lg font-semibold text-foreground">All Reels</h3>
+                  <h3 className="text-lg font-semibold text-foreground">{showSaved ? "Saved Reels" : "All Reels"}</h3>
                   <p className="text-xs text-muted-foreground mt-1">
                     {reels.length ? `${currentReelIndex + 1} of ${reels.length}` : "No reels loaded"}
                   </p>
@@ -678,7 +706,9 @@ export default function ReelsPage() {
                     ) : null}
                     {!reels.length && !isLoading ? (
                       <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                        No reels matched this filter. Try a different topic or go back to all topics.
+                        {showSaved
+                          ? "You haven't saved any reels yet. Tap the bookmark on a reel to keep it here."
+                          : "No reels matched this filter. Try a different topic or go back to all topics."}
                       </div>
                     ) : null}
                   </div>
