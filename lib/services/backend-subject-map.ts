@@ -23,22 +23,38 @@ export function hasAuthToken(): boolean {
 }
 
 export async function resolveBackendSubject(subjectKey: SubjectId): Promise<BackendSubject> {
-  const response: any = await api.get("/api/subjects");
-  const subjects: BackendSubject[] = response?.data?.subjects || response?.subjects || [];
-
   const subjectName = SUBJECTS[subjectKey]?.name;
 
-  const match = subjects.find(
-    (s) =>
-      s.subjectCode === subjectKey ||
-      (subjectName && s.subjectName?.toLowerCase() === subjectName.toLowerCase())
-  );
+  const findMatch = async () => {
+    const response: any = await api.get("/api/subjects");
+    const subjects: BackendSubject[] = response?.data?.subjects || response?.subjects || [];
+    return subjects.find(
+      (s) =>
+        s.subjectCode === subjectKey ||
+        (subjectName && s.subjectName?.toLowerCase() === subjectName.toLowerCase())
+    );
+  };
 
-  if (!match) {
-    throw new Error("Subject not found in your enrolled subjects.");
+  const existing = await findMatch();
+  if (existing) return existing;
+
+  // The backend enrolls by exact name (code = name.upper().replace(' ', '_'));
+  // SUBJECTS names must match the curriculum seed so students land on subjects that have topics.
+  if (!subjectName) throw new Error("Unknown subject.");
+  try {
+    await api.post("/api/subject", { name: subjectName, icon: subjectKey, color: "#3b82f6" });
+  } catch (e: any) {
+    if (e?.status !== 409) throw e; // 409 = already enrolled; fall through and re-fetch
   }
 
-  return match;
+  const enrolled = await findMatch();
+  if (!enrolled) throw new Error("Couldn't enrol you in this subject. Please try again.");
+  return enrolled;
+}
+
+export async function fetchBackendTopics(subjectId: number): Promise<BackendTopic[]> {
+  const response: any = await api.get(`/api/subject/${subjectId}/topics`);
+  return response?.data?.topics || response?.topics || [];
 }
 
 export async function resolveBackendTopics(subjectId: number, topicNames: string[]): Promise<number[]> {

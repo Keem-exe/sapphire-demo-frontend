@@ -35,11 +35,6 @@ export const API_CONFIG = {
       send: '/api/chat',
     },
     
-    // YouTube Shorts endpoints
-    shorts: {
-      fetch: '/api/shorts',
-    },
-    
     // User endpoints (if backend handles auth)
     auth: {
       login: '/api/auth/login',

@@ -69,7 +69,7 @@ export const SUBJECTS: Record<SubjectId, SubjectDefinition> = {
     ],
   },
   "csec-eng": {
-    name: "English",
+    name: "English A",
     topics: [
       "Grammar",
       "Comprehension",

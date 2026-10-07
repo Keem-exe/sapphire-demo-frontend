@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -23,9 +23,10 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
-import { hasAuthToken } from "@/lib/services/backend-subject-map"
+import { hasAuthToken, resolveBackendSubject, fetchBackendTopics, type BackendTopic } from "@/lib/services/backend-subject-map"
 
 type ReelItem = {
+  id: number // backend reel id: used for view/like/save
   videoId: string
   title: string
   description: string
@@ -34,14 +35,21 @@ type ReelItem = {
   durationSec: number
   durationLabel: string
   thumbnail: string
-  topic: string
-  viewCount: number
-  viewCountLabel: string
+  topic: string | null
+  youtubeViewCount: number
+  likeCount: number
   embedUrl: string
   watchUrl: string
   // Backend-provided toggle state (present when reels come from the authenticated backend)
   isLiked?: boolean
   isSaved?: boolean
+}
+
+function formatCount(n: number): string {
+  if (!n) return "0"
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`
+  return String(n)
 }
 
 const SUBJECT_ICONS: Record<SubjectId, string> = {
@@ -93,10 +101,10 @@ function formatPublishedDate(value: string): string {
 
 function buildReelDetails(reel: ReelItem): string[] {
   const details = [
-    `Topic focus: ${reel.topic}`,
+    `Topic focus: ${reel.topic || "General"}`,
     `Channel: ${reel.channelTitle}`,
     `Published: ${formatPublishedDate(reel.publishedAt)}`,
-    `Views: ${reel.viewCountLabel}`,
+    `Views: ${formatCount(reel.youtubeViewCount)}`,
   ]
 
   if (reel.description) {
@@ -134,8 +142,16 @@ export default function ReelsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [availableTopics, setAvailableTopics] = useState<string[]>(subject.topics)
-  const [likedReels, setLikedReels] = useState<Set<string>>(new Set())
-  const [savedReels, setSavedReels] = useState<Set<string>>(new Set())
+  const [likedReels, setLikedReels] = useState<Set<number>>(new Set())
+  const [savedReels, setSavedReels] = useState<Set<number>>(new Set())
+  const [backendSubjectId, setBackendSubjectId] = useState<number | null>(null)
+  const [backendTopics, setBackendTopics] = useState<BackendTopic[]>([])
+  const [topicFallback, setTopicFallback] = useState(false)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const viewedReels = useRef<Set<number>>(new Set())
   const { toast } = useToast()
 
   useEffect(() => {
@@ -149,76 +165,121 @@ export default function ReelsPage() {
     setAvailableTopics(subject.topics)
     setCurrentReelIndex(0)
     setIsPlaying(true)
+    setBackendSubjectId(null)
+    setBackendTopics([])
+    setReels([])
+  }, [subjectId])
+
+  // Backend subject + topics (topic filter needs integer ids)
+  useEffect(() => {
+    let cancelled = false
+    if (!hasAuthToken()) return
+    resolveBackendSubject(subjectId)
+      .then(async (bs) => {
+        const topics = await fetchBackendTopics(bs.subjectId)
+        if (cancelled) return
+        setBackendSubjectId(bs.subjectId)
+        setBackendTopics(topics)
+        setAvailableTopics(topics.length ? topics.map((t) => t.name) : subject.topics)
+      })
+      .catch((e: any) => {
+        if (cancelled) return
+        setIsLoading(false)
+        setError(e?.message || "Failed to load study reels.")
+      })
+    return () => {
+      cancelled = true
+    }
   }, [subjectId])
 
   useEffect(() => {
-    const controller = new AbortController()
+    if (!hasAuthToken()) {
+      setIsLoading(false)
+      setReels([])
+      setError("Study reels need a Sapphire account. Please sign in with a registered account.")
+      return
+    }
+    if (backendSubjectId == null) return
+    let cancelled = false
 
     async function loadReels() {
       setIsLoading(true)
       setError(null)
+      setTopicFallback(false)
+      setPage(1)
 
       try {
-        const searchParams = new URLSearchParams({
-          subject: subjectId,
-          max_items: "18",
-          _ts: Date.now().toString(),
+        const topic = backendTopics.find((t) => t.name === selectedTopic)
+        const response: any = await apiClient.get(`/api/subject/${backendSubjectId}/reels`, {
+          topicId: selectedTopic !== ALL_TOPICS ? topic?.id : undefined,
+          limit: 18,
+          page: 1,
         })
+        if (cancelled) return
 
-        if (selectedTopic !== ALL_TOPICS) {
-          searchParams.set("topic", selectedTopic)
-        }
-
-        const response = await fetch(`/api/shorts?${searchParams.toString()}`, {
-          signal: controller.signal,
-          cache: "no-store",
-        })
-
-        const payload = await response.json()
-        if (!response.ok) {
-          throw new Error(payload.error || "Failed to load study reels.")
-        }
-
-        const items: ReelItem[] = Array.isArray(payload.items) ? payload.items : []
-        const topicOptions = Array.isArray(payload.availableTopics) ? payload.availableTopics : subject.topics
-        setAvailableTopics(topicOptions)
+        const data = response?.data || response
+        const items: ReelItem[] = Array.isArray(data?.reels) ? data.reels : []
         setReels(items)
+        setHasMore(!!data?.hasMore)
+        setTopicFallback(!!data?.topicFallback)
         setCurrentReelIndex(0)
         setIsPlaying(items.length > 0)
+        setLikedReels(new Set(items.filter((r) => r.isLiked).map((r) => r.id)))
+        setSavedReels(new Set(items.filter((r) => r.isSaved).map((r) => r.id)))
 
-        // Initialise liked/saved state from backend-provided booleans
-        setLikedReels(new Set(items.filter(r => r.isLiked).map(r => r.videoId)))
-        setSavedReels(new Set(items.filter(r => r.isSaved).map(r => r.videoId)))
-
-        if (!items.length) {
-          if (selectedTopic !== ALL_TOPICS) {
-            setError(`No videos for ${selectedTopic} yet. Switching to all topics...`)
-            setSelectedTopic(ALL_TOPICS)
-            return
-          }
-
-          setError("No videos matched this subject right now. Try again in a moment.")
-        }
+        if (!items.length) setError("No videos matched this subject right now. Try again in a moment.")
       } catch (loadError: unknown) {
-        if ((loadError as Error).name === "AbortError") {
-          return
-        }
-
+        if (cancelled) return
         setReels([])
         setError(loadError instanceof Error ? loadError.message : "Failed to load study reels.")
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }
 
     loadReels()
-    return () => controller.abort()
-  }, [subjectId, selectedTopic])
+    return () => {
+      cancelled = true
+    }
+  }, [backendSubjectId, backendTopics, selectedTopic, reloadKey])
+
+  const loadMore = async () => {
+    if (backendSubjectId == null || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const topic = backendTopics.find((t) => t.name === selectedTopic)
+      const next = page + 1
+      const response: any = await apiClient.get(`/api/subject/${backendSubjectId}/reels`, {
+        topicId: selectedTopic !== ALL_TOPICS ? topic?.id : undefined,
+        limit: 18,
+        page: next,
+      })
+      const data = response?.data || response
+      const items: ReelItem[] = Array.isArray(data?.reels) ? data.reels : []
+      setReels((prev) => [...prev, ...items.filter((i) => !prev.some((p) => p.id === i.id))])
+      setLikedReels((prev) => new Set([...prev, ...items.filter((r) => r.isLiked).map((r) => r.id)]))
+      setSavedReels((prev) => new Set([...prev, ...items.filter((r) => r.isSaved).map((r) => r.id)]))
+      setPage(next)
+      setHasMore(!!data?.hasMore)
+    } catch (e: any) {
+      toast({ title: "Couldn't load more reels", description: e?.message, variant: "destructive" })
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const currentReel = reels[currentReelIndex] || null
   const currentReelDetails = currentReel ? buildReelDetails(currentReel) : []
-  const isLiked = currentReel ? likedReels.has(currentReel.videoId) : false
-  const isSaved = currentReel ? savedReels.has(currentReel.videoId) : false
+  const isLiked = currentReel ? likedReels.has(currentReel.id) : false
+  const isSaved = currentReel ? savedReels.has(currentReel.id) : false
+
+  // Count a view once per reel, when it starts playing (feeds streaks, study time and admin analytics)
+  useEffect(() => {
+    if (!currentReel || !isPlaying || !hasAuthToken()) return
+    if (viewedReels.current.has(currentReel.id)) return
+    viewedReels.current.add(currentReel.id)
+    apiClient.post(`/api/reels/${currentReel.id}/view`).catch(() => viewedReels.current.delete(currentReel.id))
+  }, [currentReel?.id, isPlaying])
 
   const handleNext = () => {
     setCurrentReelIndex((index) => {
@@ -242,23 +303,23 @@ export default function ReelsPage() {
 
   const handleLike = async () => {
     if (!currentReel) return
-    const wasLiked = likedReels.has(currentReel.videoId)
+    const wasLiked = likedReels.has(currentReel.id)
     // Optimistic update
     setLikedReels((previous) => {
       const next = new Set(previous)
-      if (next.has(currentReel.videoId)) next.delete(currentReel.videoId)
-      else next.add(currentReel.videoId)
+      if (next.has(currentReel.id)) next.delete(currentReel.id)
+      else next.add(currentReel.id)
       return next
     })
     if (hasAuthToken()) {
       try {
-        await apiClient.post(`/api/reels/${currentReel.videoId}/like`)
+        await apiClient.post(`/api/reels/${currentReel.id}/like`)
       } catch (e: any) {
         // Revert optimistic update on error
         setLikedReels((previous) => {
           const next = new Set(previous)
-          if (wasLiked) next.add(currentReel.videoId)
-          else next.delete(currentReel.videoId)
+          if (wasLiked) next.add(currentReel.id)
+          else next.delete(currentReel.id)
           return next
         })
         if (e.status === 404) {
@@ -270,23 +331,23 @@ export default function ReelsPage() {
 
   const handleSave = async () => {
     if (!currentReel) return
-    const wasSaved = savedReels.has(currentReel.videoId)
+    const wasSaved = savedReels.has(currentReel.id)
     // Optimistic update
     setSavedReels((previous) => {
       const next = new Set(previous)
-      if (next.has(currentReel.videoId)) next.delete(currentReel.videoId)
-      else next.add(currentReel.videoId)
+      if (next.has(currentReel.id)) next.delete(currentReel.id)
+      else next.add(currentReel.id)
       return next
     })
     if (hasAuthToken()) {
       try {
-        await apiClient.post(`/api/reels/${currentReel.videoId}/save`)
+        await apiClient.post(`/api/reels/${currentReel.id}/save`)
       } catch (e: any) {
         // Revert optimistic update on error
         setSavedReels((previous) => {
           const next = new Set(previous)
-          if (wasSaved) next.add(currentReel.videoId)
-          else next.delete(currentReel.videoId)
+          if (wasSaved) next.add(currentReel.id)
+          else next.delete(currentReel.id)
           return next
         })
         if (e.status === 404) {
@@ -303,7 +364,7 @@ export default function ReelsPage() {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({
           title: currentReel.title,
-          text: `Study reel for ${subject.name}: ${currentReel.topic}`,
+          text: `Study reel for ${subject.name}: ${currentReel.topic || "General"}`,
           url: currentReel.watchUrl,
         })
         return
@@ -342,7 +403,7 @@ export default function ReelsPage() {
                 <span className="text-2xl">{subjectIcon}</span>
                 <div>
                   <h1 className="text-lg font-semibold text-foreground">{subject.name} Reels</h1>
-                  <p className="text-xs text-muted-foreground">Quick study videos streamed from YouTube</p>
+                  <p className="text-xs text-muted-foreground">Quick study videos, curated for your subject</p>
                 </div>
               </div>
             </div>
@@ -417,7 +478,7 @@ export default function ReelsPage() {
                       </div>
 
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                        <Badge className="mb-2">{currentReel.topic}</Badge>
+                        <Badge className="mb-2">{currentReel.topic || subject.name}</Badge>
                         <h2 className="text-xl font-bold text-white mb-2">{currentReel.title}</h2>
                         <p className="text-sm text-white/80">{currentReel.description || `${currentReel.channelTitle} • ${formatPublishedDate(currentReel.publishedAt)}`}</p>
                       </div>
@@ -432,7 +493,7 @@ export default function ReelsPage() {
                           }`}
                         >
                           <ThumbsUp className={`w-6 h-6 ${isLiked ? "fill-current" : ""}`} />
-                          <span className="text-xs">{currentReel.viewCountLabel}</span>
+                          <span className="text-xs">{formatCount(currentReel.youtubeViewCount)}</span>
                         </Button>
                         <Button
                           size="lg"
@@ -553,13 +614,27 @@ export default function ReelsPage() {
                   <p className="text-xs text-muted-foreground mt-1">
                     {reels.length ? `${currentReelIndex + 1} of ${reels.length}` : "No reels loaded"}
                   </p>
-                  {error ? <p className="text-xs text-destructive mt-2">{error}</p> : null}
+                  {topicFallback ? (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      No videos for this topic yet, showing all topics.
+                    </p>
+                  ) : null}
+                  {error ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <p className="text-xs text-destructive">{error}</p>
+                      {hasAuthToken() ? (
+                        <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setReloadKey((k) => k + 1)}>
+                          Retry
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
                 <ScrollArea className="h-[500px]">
                   <div className="p-4 space-y-3">
                     {reels.map((reel, index) => (
                       <Card
-                        key={reel.videoId}
+                        key={reel.id}
                         onClick={() => {
                           setCurrentReelIndex(index)
                           setIsPlaying(true)
@@ -583,12 +658,12 @@ export default function ReelsPage() {
                               </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <Badge className="mb-1 text-xs">{reel.topic}</Badge>
+                              <Badge className="mb-1 text-xs">{reel.topic || subject.name}</Badge>
                               <h4 className="font-semibold text-sm text-foreground mb-1 line-clamp-2">{reel.title}</h4>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <span>{reel.durationLabel}</span>
                                 <span>•</span>
-                                <span>{reel.viewCountLabel} views</span>
+                                <span>{formatCount(reel.youtubeViewCount)} views</span>
                               </div>
                               <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{reel.channelTitle}</p>
                             </div>
@@ -596,6 +671,11 @@ export default function ReelsPage() {
                         </CardContent>
                       </Card>
                     ))}
+                    {hasMore ? (
+                      <Button variant="outline" size="sm" className="w-full" onClick={loadMore} disabled={loadingMore}>
+                        {loadingMore ? "Loading…" : "Load more"}
+                      </Button>
+                    ) : null}
                     {!reels.length && !isLoading ? (
                       <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                         No reels matched this filter. Try a different topic or go back to all topics.
