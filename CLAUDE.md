@@ -102,6 +102,7 @@ Production API: `https://sapphire-backend-production.up.railway.app` (all routes
 - Reels from the backend: `GET /api/subject/<backendSubjectId>/reels` (`topicId`, `limit`, `page`/`hasMore`, `topicFallback`), integer reel `id` for `/view` `/like` `/save`, Saved toggle (`GET /api/reels/saved`). `app/api/shorts` is gone
 - On-demand enrollment: `resolveBackendSubject` (`lib/services/backend-subject-map.ts`) calls `POST /api/subject` when the student is not yet enrolled
 - `/profile` crash hotfix (learning service now unwraps backend response shapes) and `app/error.tsx` error boundary
+- Dashboard tiles use the real mastery statuses
 
 **Contracts to remember**
 - Enrollment is by NAME and the backend derives the subject code from it (`name.upper().replace(' ','_')`), so names in `lib/data/subjects.ts` must match the backend seed exactly: Mathematics, English A, Chemistry, Physics, Biology, Pure Mathematics. A different spelling creates a separate subject with no topics
@@ -112,7 +113,6 @@ Production API: `https://sapphire-backend-production.up.railway.app` (all routes
 
 ## Pending / TODO
 
-- Dashboard tiles in `components/learning/LearningDashboard.tsx` still count `proficient`/`struggling`, which the backend never sends; switch to the real statuses (awaiting approval)
 - Adapt `mastery`, `insights` (`days_back`, not `timeframe`), `pacing` and `adjust-difficulty` (`current_difficulty`) in `lib/services/learning-intelligence-service.ts` to the backend's wrapped shapes; retire the dead `record-quiz` / `record-flashcard` / `feedback` calls and the intervention-by-risk-id call; drop `user_id` (awaiting approval)
 - Legacy `components/quiz/quiz-runner.tsx` and `app/quiz/page.tsx` still call the dead `record-quiz` route (404)
 - Pre-existing `tsc` errors: `components/ui/chart.tsx`, `components/ui/resizable.tsx`, `components/quiz/quiz-runner.tsx`, `app/workspace/[subjectId]/[unit]/page.tsx`, `lib/ai/rag.ts`

@@ -19,7 +19,7 @@ export interface MasteryLevel {
   recallStrength: number
   lastReviewed: string | null
   nextReviewDue: string | null
-  status: 'not_started' | 'struggling' | 'learning' | 'proficient' | 'mastered'
+  status: 'not_started' | 'learning' | 'reviewing' | 'mastered' | 'needs_review'
   createdAt: string
   updatedAt: string
 }

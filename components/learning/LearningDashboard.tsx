@@ -77,7 +77,7 @@ export function LearningDashboard({ userId, subjectId }: LearningDashboardProps)
               {dashboard?.mastery_levels.filter(m => m.status === 'mastered').length || 0}
             </div>
             <p className="text-xs text-muted-foreground">
-              {dashboard?.mastery_levels.filter(m => m.status === 'proficient').length || 0} proficient
+              {dashboard?.mastery_levels.filter(m => m.status === 'reviewing').length || 0} reviewing
             </p>
           </CardContent>
         </Card>
@@ -182,24 +182,24 @@ export function LearningDashboard({ userId, subjectId }: LearningDashboardProps)
 function MasteryBadge({ status }: { status: string }) {
   const variants = {
     not_started: 'secondary',
-    struggling: 'destructive',
+    needs_review: 'destructive',
     learning: 'default',
-    proficient: 'default',
+    reviewing: 'default',
     mastered: 'default',
   } as const
 
   const colors = {
     not_started: 'bg-gray-500',
-    struggling: 'bg-red-500',
+    needs_review: 'bg-red-500',
     learning: 'bg-yellow-500',
-    proficient: 'bg-blue-500',
+    reviewing: 'bg-blue-500',
     mastered: 'bg-green-500',
   }
 
   return (
     <Badge variant={variants[status as keyof typeof variants] || 'secondary'}>
       <span className={`w-2 h-2 rounded-full ${colors[status as keyof typeof colors]} mr-1`} />
-      {status.replace('_', ' ')}
+      {status.replaceAll('_', ' ')}
     </Badge>
   )
 }
