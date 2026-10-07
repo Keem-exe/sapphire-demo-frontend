@@ -9,6 +9,7 @@ import { apiClient } from "@/lib/api-client"
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
 import { hasAuthToken, resolveBackendSubject } from "@/lib/services/backend-subject-map"
 import { cn } from "@/lib/utils"
+import { AiRating } from "@/components/feedback/ai-rating"
 
 interface AiChatPanelProps {
   subjectName: string
@@ -364,7 +365,7 @@ function getStarterChips(subjectName: string): string[] {
 // ---------------------------------------------------------------------------
 export function AiChatPanel({ subjectName }: AiChatPanelProps) {
   const [message, setMessage] = useState("")
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; eventId?: number | string }[]>([
     {
       role: "assistant",
       content: `## Welcome! I'm Sapphire 👋\n\nI'm your AI study companion for **${subjectName || "this subject"}**.\n\nAsk me anything — worked examples, concept breakdowns, exam technique, or practice questions. I'm here to make this click.`,
@@ -414,7 +415,7 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
 
         const data = response?.data || response
         const reply = data?.response || "Sorry, I couldn't generate a response."
-        setMessages(m => [...m, { role: "assistant", content: reply }])
+        setMessages(m => [...m, { role: "assistant", content: reply, eventId: data?.eventId }])
         return
       }
 
@@ -499,8 +500,9 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
 
                 {/* Copy button for AI messages */}
                 {!isUser && (
-                  <div className="flex justify-start mt-0.5 pl-1">
+                  <div className="flex items-center justify-start mt-0.5 pl-1">
                     <CopyButton text={msg.content} />
+                    {msg.eventId != null && <AiRating eventId={msg.eventId} />}
                   </div>
                 )}
               </div>

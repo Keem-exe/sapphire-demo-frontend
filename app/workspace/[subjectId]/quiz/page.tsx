@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
+import { AiRating } from "@/components/feedback/ai-rating";
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
 import { CheckCircle2, XCircle, Trophy, AlertTriangle } from "lucide-react";
 
@@ -83,6 +84,7 @@ export default function QuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [backendQuizId, setBackendQuizId] = useState<number | null>(null);
+  const [aiEventId, setAiEventId] = useState<number | string | null>(null);
   const [backendMode, setBackendMode] = useState(false);
   const [startTime] = useState(Date.now());
 
@@ -110,6 +112,7 @@ export default function QuizPage() {
     setAlreadySubmitted(false);
     setQuestions([]);
     setBackendQuizId(null);
+    setAiEventId(null);
     setBackendMode(false);
 
     try {
@@ -132,6 +135,7 @@ export default function QuizPage() {
 
         setBackendMode(true);
         setBackendQuizId(data?.quizId || null);
+        setAiEventId(data?.eventId ?? null);
 
         const mapped = backendQuestions.map((q: any) => ({
           id: String(q.id),
@@ -411,6 +415,11 @@ export default function QuizPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold">Quiz — {subject.name}</h1>
+      {aiEventId != null && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          How are these questions? <AiRating key={aiEventId} eventId={aiEventId} />
+        </div>
+      )}
 
       {questions.map((q, idx) => (
         <Card key={q.id}>

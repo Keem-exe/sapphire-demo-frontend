@@ -1,9 +1,10 @@
+import { API_URL } from './api-config'
 /**
  * Backend Status Checker
  * Tests if backend is reachable and displays connection status
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+const BACKEND_URL = API_URL
 
 export async function checkBackendStatus(): Promise<{
   isOnline: boolean

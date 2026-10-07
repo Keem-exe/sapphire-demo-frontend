@@ -3,7 +3,12 @@
  * Handles requests to the deployed backend API
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+import { API_URL } from './api-config';
+
+const BACKEND_URL = API_URL;
+
+/** Fired when a 401 can't be recovered by refreshing; AuthProvider sends the user to login. */
+export const SESSION_EXPIRED_EVENT = 'auth:session-expired';
 
 export class ApiClient {
   private baseUrl: string;
@@ -59,7 +64,8 @@ export class ApiClient {
       return err;
     }
     if (status === 503) {
-      const err: any = new Error('AI features are temporarily unavailable.');
+      // Backend sends a human-readable reason (maintenance mode, AI disabled, model failure)
+      const err: any = new Error(body?.message || body?.error || 'The service is temporarily unavailable. Please try again shortly.');
       err.status = 503;
       return err;
     }
@@ -96,8 +102,11 @@ export class ApiClient {
       }
       // Refresh failed — clear tokens so the next request doesn't loop
       if (typeof window !== 'undefined') {
+        // Demo user has no token; only a real session that lapsed should be signed out
+        const hadSession = !!localStorage.getItem('authToken');
         localStorage.removeItem('authToken');
         localStorage.removeItem('refreshToken');
+        if (hadSession) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
       }
     }
 

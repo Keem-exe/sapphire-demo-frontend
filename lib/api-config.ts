@@ -2,9 +2,18 @@
  * Configuration for backend API integration
  */
 
+const PRODUCTION_API_URL = 'https://sapphire-backend-production.up.railway.app'
+
+/** Single source of truth for the backend origin. NEXT_PUBLIC_BACKEND_URL is the legacy name. */
+export const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  (process.env.NODE_ENV === 'production' ? PRODUCTION_API_URL : 'http://localhost:5000')
+).replace(/\/$/, '')
+
 export const API_CONFIG = {
   // Backend base URL from environment variable
-  baseUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000',
+  baseUrl: API_URL,
   
   // API endpoints
   endpoints: {

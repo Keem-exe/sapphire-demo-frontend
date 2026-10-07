@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Brain, Video, Layers, ChevronRight } from "lucide-react"
+import { Brain, Video, Layers, ChevronRight, ClipboardList } from "lucide-react"
 
 export function ToolsPanel() {
   const params = useParams()
@@ -38,6 +38,15 @@ export function ToolsPanel() {
       color: "from-green-500 to-emerald-500",
       milestone: "2 sessions to 70% mastery",
       path: `/workspace/${subjectId}/flashcards`,
+    },
+    {
+      id: "assignment",
+      name: "Assignment",
+      icon: ClipboardList,
+      description: "AI-written practice assignment with a mark scheme",
+      color: "from-amber-500 to-orange-500",
+      milestone: "Practise exam-style answers",
+      path: `/workspace/${subjectId}/assignment`,
     },
   ]
 

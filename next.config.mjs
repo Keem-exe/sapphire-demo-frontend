@@ -22,13 +22,14 @@ const nextConfig = {
   // Enable environment variables on client side
   env: {
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
   // Rewrites for API proxy (optional - useful for same-origin requests)
   async rewrites() {
     return [
       {
         source: '/backend-api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'production' ? 'https://sapphire-backend-production.up.railway.app' : 'http://localhost:5000')}/:path*`,
       },
     ];
   },

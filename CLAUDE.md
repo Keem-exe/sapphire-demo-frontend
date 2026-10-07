@@ -16,7 +16,7 @@ No test suite is configured. There is no `.env.local` in the repo — create one
 ```
 GOOGLE_GEMINI_API_KEY=...           # Used server-side in API routes (app/api/*)
 NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY=... # Used client-side in LearningEngineService
-NEXT_PUBLIC_BACKEND_URL=https://sapphire-2x9z.onrender.com  # Defaults to http://localhost:8000
+NEXT_PUBLIC_API_URL=https://sapphire-backend-production.up.railway.app  # Resolved in lib/api-config.ts; falls back to NEXT_PUBLIC_BACKEND_URL, then Railway (prod) / http://localhost:5000 (dev)
 ```
 
 ## Architecture
@@ -28,7 +28,7 @@ NEXT_PUBLIC_BACKEND_URL=https://sapphire-2x9z.onrender.com  # Defaults to http:/
 - `contexts/auth-context.tsx` — single `AuthProvider` wrapping the whole app in `app/layout.tsx`
 - Auth state persists to `localStorage` (`user`, `authToken`, `selectedLevel`, `learningStyle`)
 - Demo login: email `andrew.lee@demo.com` bypasses the backend entirely and loads `DEMO_USER`
-- All other logins hit the backend at `NEXT_PUBLIC_BACKEND_URL` via `lib/api-client.ts` (`ApiClient` singleton `apiClient`)
+- All other logins hit the backend at `NEXT_PUBLIC_API_URL` via `lib/api-client.ts` (`ApiClient` singleton `apiClient`)
 - Backend response shape: `{ success: true, data: { user: {...}, token: "..." } }`
 
 ### Page Routing Flow

@@ -24,7 +24,9 @@ import {
   Video,
   Layers,
   CheckCircle2,
+  MessageSquarePlus,
 } from "lucide-react"
+import { FeedbackDialog } from "@/components/feedback/feedback-dialog"
 
 // Initial CSEC subjects
 const INITIAL_CSEC_SUBJECTS = [
@@ -130,6 +132,7 @@ const INITIAL_CAPE_SUBJECTS = [
 export default function DashboardPage() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [selectedLevel, setSelectedLevel] = useState<"csec" | "cape" | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [isBooting, setIsBooting] = useState(true)
@@ -305,6 +308,15 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFeedbackOpen(true)}
+                className="text-primary border-primary/20 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
+              >
+                <MessageSquarePlus className="w-4 h-4 mr-2" />
+                Feedback
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -519,6 +531,8 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
 
       {/* Add Subject Dialog */}
       <AddSubjectDialog

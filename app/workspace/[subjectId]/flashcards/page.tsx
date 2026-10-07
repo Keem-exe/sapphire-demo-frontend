@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
 import { apiClient } from "@/lib/api-client";
+import { AiRating } from "@/components/feedback/ai-rating";
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy } from "lucide-react";
@@ -63,6 +64,7 @@ export default function FlashcardsPage() {
   const [masteredCards, setMasteredCards] = useState<Set<string>>(new Set());
   const [reviewedCards, setReviewedCards] = useState<Set<string>>(new Set());
   const [backendSetId, setBackendSetId] = useState<number | null>(null);
+  const [aiEventId, setAiEventId] = useState<number | string | null>(null);
   const [practiceResult, setPracticeResult] = useState<{
     cardsReviewed: number;
     cardsMastered: number;
@@ -114,6 +116,7 @@ export default function FlashcardsPage() {
       setLoading(true);
       setCards([]);
       setBackendSetId(null);
+      setAiEventId(null);
       setPracticeResult(null);
 
       if (hasAuthToken()) {
@@ -141,6 +144,7 @@ export default function FlashcardsPage() {
         }));
 
         setBackendSetId(data?.setId || null);
+        setAiEventId(data?.eventId ?? null);
         setCards(mapped);
       } else {
         const res = await fetch("/api/flashcards", {
@@ -292,6 +296,11 @@ const handleEndSession = async () => {
 
       {!!cards.length && (
         <>
+          {aiEventId != null && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              How are these flashcards? <AiRating key={aiEventId} eventId={aiEventId} />
+            </div>
+          )}
           <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
             <div className="text-sm">
               <span className="font-semibold">Session Progress:</span> {reviewedCards.size}/{cards.length} reviewed • {masteredCards.size} mastered

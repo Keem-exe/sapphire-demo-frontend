@@ -3,7 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, SESSION_EXPIRED_EVENT } from "@/lib/api-client"
 import { seedDemoUserData } from "@/lib/services/seed-demo-data"
 
 interface User {
@@ -198,6 +198,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    const onExpired = () => {
+      setUser(null)
+      ;["user", "authToken", "refreshToken", "selectedLevel", "learningStyle"].forEach((k) => localStorage.removeItem(k))
+      router.push("/")
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
+  }, [router])
 
   const logout = () => {
     setUser(null)
