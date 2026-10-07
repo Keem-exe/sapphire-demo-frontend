@@ -103,6 +103,7 @@ Production API: `https://sapphire-backend-production.up.railway.app` (all routes
 - On-demand enrollment: `resolveBackendSubject` (`lib/services/backend-subject-map.ts`) calls `POST /api/subject` when the student is not yet enrolled
 - `/profile` crash hotfix (learning service now unwraps backend response shapes) and `app/error.tsx` error boundary
 - Dashboard tiles use the real mastery statuses
+- Learning service adapted to backend contracts (mastery/insights/pacing/adjust-difficulty/intervention); dead `record-quiz`/`record-flashcard`/`feedback` calls and their hooks removed; `user_id` no longer sent; legacy `components/quiz/quiz-runner.tsx` no longer calls the dead route
 
 **Contracts to remember**
 - Enrollment is by NAME and the backend derives the subject code from it (`name.upper().replace(' ','_')`), so names in `lib/data/subjects.ts` must match the backend seed exactly: Mathematics, English A, Chemistry, Physics, Biology, Pure Mathematics. A different spelling creates a separate subject with no topics
@@ -113,8 +114,6 @@ Production API: `https://sapphire-backend-production.up.railway.app` (all routes
 
 ## Pending / TODO
 
-- Adapt `mastery`, `insights` (`days_back`, not `timeframe`), `pacing` and `adjust-difficulty` (`current_difficulty`) in `lib/services/learning-intelligence-service.ts` to the backend's wrapped shapes; retire the dead `record-quiz` / `record-flashcard` / `feedback` calls and the intervention-by-risk-id call; drop `user_id` (awaiting approval)
-- Legacy `components/quiz/quiz-runner.tsx` and `app/quiz/page.tsx` still call the dead `record-quiz` route (404)
-- Pre-existing `tsc` errors: `components/ui/chart.tsx`, `components/ui/resizable.tsx`, `components/quiz/quiz-runner.tsx`, `app/workspace/[subjectId]/[unit]/page.tsx`, `lib/ai/rag.ts`
+- Pre-existing `tsc` errors: `components/ui/chart.tsx`, `components/ui/resizable.tsx`, `app/workspace/[subjectId]/[unit]/page.tsx`, `lib/ai/rag.ts`
 - `YOUTUBE_API_KEY` and `NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY` can be removed from Vercel once nothing needs them
 - Admin Diagnostics and pre/post progress cards stay empty until a student diagnostic flow exists

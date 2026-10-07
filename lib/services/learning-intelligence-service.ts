@@ -89,27 +89,15 @@ export interface KnowledgeGap {
   recommended_actions: string[]
 }
 
+/** Backend `GET /api/learning/insights` -> `{ insights }` */
 export interface LearningInsights {
-  user_id: number
-  total_study_time: number
-  average_accuracy: number
-  topics_mastered: number
-  topics_in_progress: number
-  strengths: string[]
-  areas_for_improvement: string[]
-  study_patterns: {
-    peak_performance_time: string
-    average_session_length: number
-    study_frequency: string
-  }
+  study_patterns: Record<string, any>
+  thinking_patterns: Record<string, any>
+  motivation: Record<string, any>
 }
 
-export interface PacingRecommendation {
-  current_pace: 'too_fast' | 'appropriate' | 'too_slow'
-  recommended_pace: string
-  reason: string
-  suggested_adjustments: string[]
-}
+/** Backend `GET /api/learning/pacing` -> `{ pacing }` (shape owned by the backend) */
+export type PacingRecommendation = Record<string, any>
 
 const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
 
@@ -130,7 +118,7 @@ export class LearningIntelligenceService {
    * Get comprehensive learning dashboard for a user
    */
   async getDashboard(userId: number): Promise<LearningDashboard> {
-    const res: any = await this.api.get('/api/learning/dashboard', { user_id: userId.toString() })
+    const res: any = await this.api.get('/api/learning/dashboard')
     const d = res?.dashboard ?? res?.data ?? res ?? {}
     return {
       ...d,
@@ -147,7 +135,7 @@ export class LearningIntelligenceService {
    * Get next content recommendation
    */
   async getNextContent(userId: number, subjectId?: number): Promise<NextContentRecommendation> {
-    const params: Record<string, string> = { user_id: userId.toString() }
+    const params: Record<string, string> = {}
     if (subjectId) params.subject_id = subjectId.toString()
 
     const res: any = await this.api.get('/api/learning/next-content', params)
@@ -157,19 +145,19 @@ export class LearningIntelligenceService {
   /**
    * Get mastery level for a specific topic
    */
-  async getMasteryLevel(userId: number, subjectId: number, topicId: number): Promise<MasteryLevel> {
-    return this.api.get<MasteryLevel>('/api/learning/mastery', {
-      user_id: userId.toString(),
+  async getMasteryLevel(userId: number, subjectId: number, topicId: number): Promise<MasteryLevel | null> {
+    const res: any = await this.api.get('/api/learning/mastery', {
       subject_id: subjectId.toString(),
       topic_id: topicId.toString(),
     })
+    return res?.mastery ?? null // null = no record yet (treat as not_started)
   }
 
   /**
    * Get knowledge gaps for a user
    */
   async getKnowledgeGaps(userId: number, subjectId?: number): Promise<KnowledgeGap[]> {
-    const params: Record<string, string> = { user_id: userId.toString() }
+    const params: Record<string, string> = {}
     if (subjectId) params.subject_id = subjectId.toString()
     
     const res: any = await this.api.get('/api/learning/knowledge-gaps', params)
@@ -179,31 +167,34 @@ export class LearningIntelligenceService {
   /**
    * Get learning insights
    */
-  async getInsights(userId: number, timeframe: string = '30d'): Promise<LearningInsights> {
-    return this.api.get<LearningInsights>('/api/learning/insights', {
-      user_id: userId.toString(),
-      timeframe,
-    })
+  async getInsights(userId: number, daysBack: number = 30, subjectId?: number): Promise<LearningInsights> {
+    const params: Record<string, string> = { days_back: daysBack.toString() }
+    if (subjectId) params.subject_id = subjectId.toString()
+    const res: any = await this.api.get('/api/learning/insights', params)
+    return (res?.insights ?? {}) as LearningInsights
   }
 
   /**
    * Get pacing recommendation
    */
-  async getPacing(userId: number, subjectId: number): Promise<PacingRecommendation> {
-    return this.api.get<PacingRecommendation>('/api/learning/pacing', {
-      user_id: userId.toString(),
+  async getPacing(userId: number, subjectId: number, topicId: number): Promise<PacingRecommendation> {
+    const res: any = await this.api.get('/api/learning/pacing', {
       subject_id: subjectId.toString(),
+      topic_id: topicId.toString(),
     })
+    return res?.pacing ?? {}
   }
 
   /**
    * Adjust difficulty based on performance
    */
-  async adjustDifficulty(userId: number, subjectId: number, topicId: number): Promise<{ recommended_difficulty: string; reason: string }> {
+  async adjustDifficulty(
+    subjectId: number,
+    currentDifficulty: 'Easy' | 'Medium' | 'Hard'
+  ): Promise<{ recommended_difficulty: string; previous_difficulty: string; changed: boolean; reason: string }> {
     return this.api.post('/api/learning/adjust-difficulty', {
-      user_id: userId,
       subject_id: subjectId,
-      topic_id: topicId,
+      current_difficulty: currentDifficulty,
     })
   }
 
@@ -211,7 +202,7 @@ export class LearningIntelligenceService {
    * Get active risk indicators
    */
   async getRisks(userId: number): Promise<RiskIndicator[]> {
-    const res: any = await this.api.get('/api/learning/risks', { user_id: userId.toString() })
+    const res: any = await this.api.get('/api/learning/risks', { min_level: 'low' })
     return asArray<RiskIndicator>(res?.risks ?? res?.data ?? res)
   }
 
@@ -219,55 +210,17 @@ export class LearningIntelligenceService {
    * Detect new risks for a user
    */
   async detectRisks(userId: number): Promise<{ detected_risks: RiskIndicator[] }> {
-    const res: any = await this.api.post('/api/learning/detect-risks', { user_id: userId })
+    const res: any = await this.api.post('/api/learning/detect-risks')
     return { detected_risks: asArray<RiskIndicator>(res?.risks ?? res?.detected_risks) }
   }
 
   /**
    * Get intervention details for a specific risk
    */
-  async getIntervention(riskId: number): Promise<any> {
-    return this.api.get(`/api/learning/intervention/${riskId}`)
-  }
-
-  /**
-   * Record quiz completion (called after grading)
-   */
-  async recordQuizCompletion(data: {
-    userId: number
-    subjectId: number
-    topicId: number
-    quizId: number
-    score: number
-    durationSeconds: number
-  }): Promise<{ success: boolean; mastery_updated: boolean }> {
-    return this.api.post('/api/learning/record-quiz', data)
-  }
-
-  /**
-   * Record flashcard practice session
-   */
-  async recordFlashcardPractice(data: {
-    userId: number
-    flashcardId: number
-    wasCorrect: boolean
-    responseTimeMs: number
-    userGuessed?: boolean
-  }): Promise<{ success: boolean; recall_updated: boolean }> {
-    return this.api.post('/api/learning/record-flashcard', data)
-  }
-
-  /**
-   * Get personalized feedback for an answer
-   */
-  async getPersonalizedFeedback(data: {
-    userId: number
-    subjectId: number
-    topicId: number
-    wasCorrect: boolean
-    questionId?: number
-  }): Promise<{ feedback: string; learning_tip: string; next_step: string }> {
-    return this.api.post('/api/learning/feedback', data)
+  async getIntervention(forUserId: number): Promise<any> {
+    // Path param is a USER id (students: own id only; admins: any)
+    const res: any = await this.api.get(`/api/learning/intervention/${forUserId}`)
+    return res?.dashboard ?? res
   }
 }
 

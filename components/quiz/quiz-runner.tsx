@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
-import { learningIntelligenceService } from "@/lib/services/learning-intelligence-service"
 import { useToast } from "@/hooks/use-toast"
 
 type StoredQuiz = {
@@ -76,64 +75,6 @@ export default function QuizRunner() {
 
       const dataReport = (await res.json()) as GradeReport
       setReport(dataReport)
-      
-      // Record quiz completion with learning intelligence backend
-      try {
-        const totalQuestions = data.quiz.length
-        const correctAnswers = dataReport.correct
-        const accuracy = correctAnswers / totalQuestions
-        
-        // Record each question interaction
-        for (const questionResult of dataReport.perQuestion) {
-          const question = data.quiz[questionResult.index]
-          
-          await learningIntelligenceService.recordInteraction({
-            userId: user.user_id,
-            subjectId: parseInt(data.subjectId.split('-')[1]) || 1, // Extract numeric ID
-            topicId: null, // We'll need to map topics properly
-            interactionType: 'quiz',
-            referenceId: null,
-            durationSeconds: Math.round(durationSeconds / totalQuestions), // Approximate per question
-            accuracy: questionResult.correct ? 1.0 : 0.0,
-            difficulty: data.meta.difficulty,
-            metadata: {
-              questionType: question.type,
-              topic: data.meta.topics[0] || 'general',
-              userAnswer: answers[questionResult.index],
-              correctAnswer: question.answerKey,
-              correct: questionResult.correct
-            }
-          })
-        }
-        
-        // Update mastery level for the first topic (simplified)
-        if (data.meta.topics.length > 0) {
-          await learningIntelligenceService.recordQuizCompletion({
-            userId: user.user_id,
-            subjectId: parseInt(data.subjectId.split('-')[1]) || 1,
-            topicId: null, // Will be updated when we have proper topic mapping
-            score: accuracy,
-            totalQuestions,
-            correctAnswers,
-            difficulty: data.meta.difficulty,
-            durationSeconds,
-            questionTypes: data.meta.types
-          })
-        }
-        
-        toast({
-          title: "Quiz Recorded",
-          description: `Your results have been saved to your learning profile!`,
-        })
-      } catch (error) {
-        console.error("Failed to record quiz to learning intelligence:", error)
-        // Don't block the user from seeing results if backend fails
-        toast({
-          title: "Note",
-          description: "Quiz results shown but not saved to your profile. Please check your connection.",
-          variant: "destructive"
-        })
-      }
       
     } catch (e: any) {
       setReport({

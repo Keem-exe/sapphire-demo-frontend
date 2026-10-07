@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { analyticsService } from "@/lib/services/analytics"
 import { intelligenceEngine } from "@/lib/services/intelligence-engine"
 import { quizHistoryService } from "@/lib/services/quiz-history-service"
-import { useQuizCompletion, useNextContent } from '@/lib/hooks/use-learning-intelligence'
+import { useNextContent } from '@/lib/hooks/use-learning-intelligence'
 import {
   Card,
   CardContent,
@@ -43,7 +43,6 @@ export default function ProfilePage() {
   const [flashcardHistory, setFlashcardHistory] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(false)
-  const { recordCompletion } = useQuizCompletion()
   const { recommendation } = useNextContent(user?.id || null, undefined)
 
   useEffect(() => {

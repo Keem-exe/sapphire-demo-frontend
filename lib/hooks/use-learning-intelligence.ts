@@ -203,7 +203,7 @@ export function useKnowledgeGaps(userId: number | null, subjectId?: number) {
 /**
  * Hook for learning insights
  */
-export function useLearningInsights(userId: number | null, timeframe: string = '30d') {
+export function useLearningInsights(userId: number | null, daysBack: number = 30) {
   const [insights, setInsights] = useState<LearningInsights | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -215,7 +215,7 @@ export function useLearningInsights(userId: number | null, timeframe: string = '
       setLoading(true)
       setError(null)
       try {
-        const data = await learningIntelligenceService.getInsights(userId, timeframe)
+        const data = await learningIntelligenceService.getInsights(userId, daysBack)
         setInsights(data)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch insights')
@@ -225,7 +225,7 @@ export function useLearningInsights(userId: number | null, timeframe: string = '
     }
 
     fetchInsights()
-  }, [userId, timeframe])
+  }, [userId, daysBack])
 
   return { insights, loading, error }
 }
@@ -283,67 +283,4 @@ export function useRiskDetection(userId: number | null) {
   }, [fetchActiveRisks])
 
   return { risks, loading, error, detectRisks, refresh: fetchActiveRisks }
-}
-
-/**
- * Hook for recording quiz completion with automatic mastery update
- */
-export function useQuizCompletion() {
-  const [recording, setRecording] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const recordCompletion = useCallback(async (data: {
-    userId: number
-    subjectId: number
-    topicId: number
-    quizId: number
-    score: number
-    durationSeconds: number
-  }) => {
-    setRecording(true)
-    setError(null)
-    try {
-      const result = await learningIntelligenceService.recordQuizCompletion(data)
-      return result
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to record quiz completion'
-      setError(errorMsg)
-      throw new Error(errorMsg)
-    } finally {
-      setRecording(false)
-    }
-  }, [])
-
-  return { recordCompletion, recording, error }
-}
-
-/**
- * Hook for recording flashcard practice
- */
-export function useFlashcardPractice() {
-  const [recording, setRecording] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const recordPractice = useCallback(async (data: {
-    userId: number
-    flashcardId: number
-    wasCorrect: boolean
-    responseTimeMs: number
-    userGuessed?: boolean
-  }) => {
-    setRecording(true)
-    setError(null)
-    try {
-      const result = await learningIntelligenceService.recordFlashcardPractice(data)
-      return result
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to record practice'
-      setError(errorMsg)
-      throw new Error(errorMsg)
-    } finally {
-      setRecording(false)
-    }
-  }, [])
-
-  return { recordPractice, recording, error }
 }
