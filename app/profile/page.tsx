@@ -30,6 +30,7 @@ import {
   Lightbulb,
   Brain,
   Flame,
+  ShieldCheck,
 } from "lucide-react"
 import { LearningDashboard } from '@/components/learning/LearningDashboard'
 
@@ -162,9 +163,17 @@ export default function ProfilePage() {
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Learning Profile</h1>
-        <Button variant="outline" onClick={() => router.push("/dashboard")}>
-          Back to Dashboard
-        </Button>
+        <div className="flex items-center gap-2">
+          {user?.accountType === "admin" && (
+            <Button variant="outline" onClick={() => router.push("/admin")}>
+              <ShieldCheck className="w-4 h-4 mr-2" />
+              Admin console
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => router.push("/dashboard")}>
+            Back to Dashboard
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

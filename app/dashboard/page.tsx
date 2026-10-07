@@ -25,6 +25,7 @@ import {
   Layers,
   CheckCircle2,
   MessageSquarePlus,
+  ShieldCheck,
 } from "lucide-react"
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog"
 
@@ -308,6 +309,17 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {user?.accountType === "admin" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/admin")}
+                  className="text-primary border-primary/20 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
+                >
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                  Admin
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
