@@ -97,7 +97,7 @@ export function useNextContent(userId: number | null, subjectId?: number) {
   const [error, setError] = useState<string | null>(null)
 
   const fetchRecommendation = useCallback(async () => {
-    if (!userId) return
+    if (!userId || !subjectId) return // backend requires subject_id
 
     const cacheKey = `next-content:${userId}:${subjectId ?? 'all'}`
     const cached = getCached<NextContentRecommendation>(cacheKey)
@@ -170,7 +170,7 @@ export function useKnowledgeGaps(userId: number | null, subjectId?: number) {
   const [error, setError] = useState<string | null>(null)
 
   const fetchGaps = useCallback(async () => {
-    if (!userId) return
+    if (!userId || !subjectId) return // backend requires subject_id
 
     const cacheKey = `gaps:${userId}:${subjectId ?? 'all'}`
     const cached = getCached<KnowledgeGap[]>(cacheKey)

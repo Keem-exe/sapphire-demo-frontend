@@ -111,8 +111,13 @@ export interface PacingRecommendation {
   suggested_adjustments: string[]
 }
 
+const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
+
 /**
  * Service class for Learning Intelligence API
+ *
+ * The backend returns `{ success, <key>: ... }` (user comes from the JWT), not a bare payload,
+ * so each method adapts the response to the shape the UI expects. Lists are always arrays.
  */
 export class LearningIntelligenceService {
   private api: ApiClient
@@ -125,9 +130,17 @@ export class LearningIntelligenceService {
    * Get comprehensive learning dashboard for a user
    */
   async getDashboard(userId: number): Promise<LearningDashboard> {
-    return this.api.get<LearningDashboard>('/api/learning/dashboard', {
-      user_id: userId.toString(),
-    })
+    const res: any = await this.api.get('/api/learning/dashboard', { user_id: userId.toString() })
+    const d = res?.dashboard ?? res?.data ?? res ?? {}
+    return {
+      ...d,
+      user_id: userId,
+      mastery_levels: asArray(d.mastery_levels),
+      active_risks: asArray(d.active_risks ?? d.risks),
+      recommendations: asArray(d.recommendations),
+      total_interactions: d.total_interactions ?? 0,
+      study_streak: d.study_streak ?? 0,
+    } as LearningDashboard
   }
 
   /**
@@ -136,8 +149,9 @@ export class LearningIntelligenceService {
   async getNextContent(userId: number, subjectId?: number): Promise<NextContentRecommendation> {
     const params: Record<string, string> = { user_id: userId.toString() }
     if (subjectId) params.subject_id = subjectId.toString()
-    
-    return this.api.get<NextContentRecommendation>('/api/learning/next-content', params)
+
+    const res: any = await this.api.get('/api/learning/next-content', params)
+    return (res?.recommendation ?? res?.data ?? res) as NextContentRecommendation
   }
 
   /**
@@ -158,7 +172,8 @@ export class LearningIntelligenceService {
     const params: Record<string, string> = { user_id: userId.toString() }
     if (subjectId) params.subject_id = subjectId.toString()
     
-    return this.api.get<KnowledgeGap[]>('/api/learning/knowledge-gaps', params)
+    const res: any = await this.api.get('/api/learning/knowledge-gaps', params)
+    return asArray<KnowledgeGap>(res?.knowledge_gaps ?? res?.data ?? res)
   }
 
   /**
@@ -196,18 +211,16 @@ export class LearningIntelligenceService {
    * Get active risk indicators
    */
   async getRisks(userId: number): Promise<RiskIndicator[]> {
-    return this.api.get<RiskIndicator[]>('/api/learning/risks', {
-      user_id: userId.toString(),
-    })
+    const res: any = await this.api.get('/api/learning/risks', { user_id: userId.toString() })
+    return asArray<RiskIndicator>(res?.risks ?? res?.data ?? res)
   }
 
   /**
    * Detect new risks for a user
    */
   async detectRisks(userId: number): Promise<{ detected_risks: RiskIndicator[] }> {
-    return this.api.post('/api/learning/detect-risks', {
-      user_id: userId,
-    })
+    const res: any = await this.api.post('/api/learning/detect-risks', { user_id: userId })
+    return { detected_risks: asArray<RiskIndicator>(res?.risks ?? res?.detected_risks) }
   }
 
   /**
