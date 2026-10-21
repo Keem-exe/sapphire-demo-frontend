@@ -388,7 +388,7 @@ export default function QuizPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-5">
-              <p className="text-xs text-muted-foreground">Counts towards your streak</p>
+              <p className="text-xs text-muted-foreground">About {Math.max(1, Math.round(count))} minutes · Counts towards your streak</p>
               <Button onClick={fetchQuiz} disabled={loading} className="h-11 rounded-xl px-6 font-semibold">
                 {loading ? "Generating..." : "Generate Quiz"}
               </Button>
@@ -437,13 +437,14 @@ export default function QuizPage() {
                 </Badge>
               </div>
               <p className="tabular-nums text-muted-foreground">
-                {backendResult.correctQuestions} / {backendResult.totalQuestions} correct
+                {backendResult.correctQuestions} of {backendResult.totalQuestions} correct
+                {backendResult.durationSeconds ? ` · ${Math.floor(backendResult.durationSeconds / 60)}m ${backendResult.durationSeconds % 60}s` : ""}
               </p>
             </div>
             {feedback && <p className="min-w-[260px] flex-1 font-medium">{feedback}</p>}
           </section>
 
-          <div>
+          <div className="flex flex-wrap gap-3">
             <Button
               className="h-11 rounded-xl px-6 font-semibold"
               onClick={() => {
@@ -454,6 +455,9 @@ export default function QuizPage() {
               }}
             >
               Try Another Quiz
+            </Button>
+            <Button asChild variant="outline" className="h-11 rounded-xl px-6 shadow-none">
+              <Link href={`/workspace/${subjectId}/flashcards`}>Drill with flashcards</Link>
             </Button>
           </div>
 
