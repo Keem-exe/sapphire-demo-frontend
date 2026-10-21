@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +17,7 @@ import { apiClient } from "@/lib/api-client";
 import { AiRating } from "@/components/feedback/ai-rating";
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
 import { useToast } from "@/hooks/use-toast";
-import { Trophy } from "lucide-react";
+import { ArrowLeft, Layers, Trophy } from "lucide-react";
 
 // Map legacy/alias route IDs to canonical SUBJECTS keys
 const normalizeSubjectId = (id: string): SubjectId => {
@@ -76,33 +79,79 @@ export default function FlashcardsPage() {
 
   if (!subject) return <div className="p-6">Unknown subject.</div>;
 
+  const header = (
+    <header className="hdr">
+      <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-6">
+        <Button asChild variant="ghost" size="sm" className="min-h-11 shadow-none">
+          <Link href={`/workspace/${canonicalId}`}>
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            {subject.name}
+          </Link>
+        </Button>
+        <span className="h-6 w-px bg-border" />
+        <span className="g-flash inline-flex size-8 items-center justify-center rounded-lg text-white" aria-hidden="true">
+          <Layers className="size-4" />
+        </span>
+        <h1 className="text-lg font-semibold">Flashcards</h1>
+      </div>
+    </header>
+  );
+
   // Post-practice summary screen
   if (practiceResult) {
     const pct = Math.round(practiceResult.percentageScore ?? (practiceResult.accuracy * 100));
     return (
-      <div className="p-8 max-w-md mx-auto space-y-6">
-        <Card className={practiceResult.passed ? "border-green-400 bg-green-50" : "border-yellow-400 bg-yellow-50"}>
-          <CardContent className="p-6 flex items-center gap-4">
-            <Trophy className={`w-10 h-10 flex-shrink-0 ${practiceResult.passed ? "text-green-600" : "text-yellow-500"}`} />
-            <div>
-              <p className="text-3xl font-bold">{pct}%</p>
-              <p className="text-sm text-muted-foreground">
+      <div className="min-h-screen bg-background">
+        {header}
+        <main className="mx-auto flex max-w-[960px] flex-col gap-6 px-6 pb-16 pt-8">
+          <section
+            className={cn(
+              "flex flex-wrap items-center gap-5 rounded-2xl border-2 p-5",
+              practiceResult.passed
+                ? "border-status-success bg-status-success-subtle"
+                : "border-status-warning bg-status-warning-subtle",
+            )}
+          >
+            <Trophy
+              className={cn("size-10 shrink-0", practiceResult.passed ? "text-status-success" : "text-status-warning")}
+              aria-hidden="true"
+            />
+            <div className="min-w-[200px] flex-1">
+              <p className="text-3xl font-bold leading-9 tabular-nums">{pct}%</p>
+              <p className="tabular-nums text-muted-foreground">
                 {practiceResult.cardsMastered} / {practiceResult.cardsReviewed} cards mastered
               </p>
-              <Badge className={`mt-1 ${practiceResult.passed ? "bg-green-600" : "bg-yellow-500"}`}>
-                {practiceResult.passed ? "Session complete!" : "Keep practising"}
-              </Badge>
             </div>
-          </CardContent>
-        </Card>
-        <div className="text-sm text-muted-foreground space-y-1">
-          <p>Cards reviewed: <span className="font-semibold text-foreground">{practiceResult.cardsReviewed}</span></p>
-          <p>Cards mastered: <span className="font-semibold text-foreground">{practiceResult.cardsMastered}</span></p>
-          <p>Duration: <span className="font-semibold text-foreground">{Math.round(practiceResult.durationSeconds / 60)}m {practiceResult.durationSeconds % 60}s</span></p>
-        </div>
-        <Button onClick={() => { setPracticeResult(null); setCards([]); }}>
-          Start a New Session
-        </Button>
+            <Badge className={cn("text-white", practiceResult.passed ? "bg-status-success" : "bg-status-warning")}>
+              {practiceResult.passed ? "Session complete!" : "Keep practising"}
+            </Badge>
+          </section>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>
+              Cards reviewed: <span className="font-semibold text-foreground">{practiceResult.cardsReviewed}</span>
+            </p>
+            <p>
+              Cards mastered: <span className="font-semibold text-foreground">{practiceResult.cardsMastered}</span>
+            </p>
+            <p>
+              Duration:{" "}
+              <span className="font-semibold text-foreground">
+                {Math.round(practiceResult.durationSeconds / 60)}m {practiceResult.durationSeconds % 60}s
+              </span>
+            </p>
+          </div>
+          <div>
+            <Button
+              className="h-11 rounded-xl px-6 font-semibold"
+              onClick={() => {
+                setPracticeResult(null);
+                setCards([]);
+              }}
+            >
+              Start a New Session
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -125,6 +174,10 @@ export default function FlashcardsPage() {
           canonicalId,
           selectedTopics
         );
+
+        if (!topicIds.length) {
+          throw new Error("No topics are available for this subject yet. Please try again later or contact support.");
+        }
 
         const response: any = await apiClient.post("/api/ai/flashcards", {
           subjectId: backendSubjectId,
@@ -261,93 +314,132 @@ const handleEndSession = async () => {
 
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-3xl font-extrabold">Flashcards — {subject.name}</h1>
+    <div className="min-h-screen bg-background">
+      {header}
+      <main className="mx-auto flex max-w-[960px] flex-col gap-6 px-6 pb-16 pt-8">
+        <Card className="gap-[18px] rounded-2xl p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">New set</h2>
+            <span className="text-xs text-muted-foreground">Pick topics, then generate</span>
+          </div>
 
-      <div className="space-y-3">
-        <Label className="font-medium">Select topics</Label>
-        <div className="grid grid-cols-2 gap-4 text-lg">
-          {subject.topics.map((t) => (
-            <label key={t} className="flex items-center gap-3">
-              <Checkbox checked={topics.includes(t)} onCheckedChange={() => toggle(t)} />
-              <span>{t}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-4 pt-2">
-          <Label htmlFor="count">Count</Label>
-          <Input
-            id="count"
-            type="number"
-            min={1}
-            max={200}
-            value={count}
-            onChange={(e) => setCount(parseInt(e.target.value || "20", 10))}
-            className="w-28"
-          />
-          <Button onClick={onGenerate} disabled={loading}>
-            {loading ? "Generating..." : "Generate"}
-          </Button>
-        </div>
-
-        {err && <div className="text-red-600 text-sm">{err}</div>}
-      </div>
-
-      {!!cards.length && (
-        <>
-          {aiEventId != null && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              How are these flashcards? <AiRating key={aiEventId} eventId={aiEventId} />
+          <fieldset>
+            <legend className="sr-only">Select topics</legend>
+            <div className="flex flex-wrap gap-2">
+              {subject.topics.map((t) => (
+                <label
+                  key={t}
+                  className={cn(
+                    "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border bg-card px-3 py-2 text-sm",
+                    topics.includes(t) && "border-primary bg-primary/5",
+                  )}
+                >
+                  <Checkbox checked={topics.includes(t)} onCheckedChange={() => toggle(t)} />
+                  <span>{t}</span>
+                </label>
+              ))}
             </div>
-          )}
-          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-            <div className="text-sm">
-              <span className="font-semibold">Session Progress:</span> {reviewedCards.size}/{cards.length} reviewed • {masteredCards.size} mastered
-            </div>
-            <Button onClick={handleEndSession} variant="default" disabled={reviewedCards.size === 0}>
-              End Session & Save
+          </fieldset>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Label htmlFor="count">Cards</Label>
+            <Input
+              id="count"
+              type="number"
+              min={1}
+              max={200}
+              value={count}
+              onChange={(e) => setCount(parseInt(e.target.value || "20", 10))}
+              className="h-11 w-24 rounded-xl text-center"
+            />
+            <Button onClick={onGenerate} disabled={loading} className="h-11 rounded-xl px-6 font-semibold">
+              {loading ? "Generating..." : "Generate"}
             </Button>
           </div>
-          
-          <div className="grid gap-4 sm:grid-cols-2">
-            {cards.map((c) => {
-              const isReviewed = reviewedCards.has(c.id);
-              const isMastered = masteredCards.has(c.id);
-              
-              return (
-                <Card key={c.id} className={isReviewed ? (isMastered ? "border-green-500" : "border-yellow-500") : ""}>
-                  <CardContent className="p-4 space-y-2">
-                    <div className="font-semibold">{c.front}</div>
-                    <div className="text-muted-foreground">{c.back}</div>
-                    <div className="text-xs mt-2">
-                      Topic: {c.topic} • {c.difficulty}
+
+          {err && (
+            <div role="alert" className="rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+              {err}
+            </div>
+          )}
+        </Card>
+
+        {!!cards.length && (
+          <>
+            {aiEventId != null && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                How are these flashcards? <AiRating key={aiEventId} eventId={aiEventId} />
+              </div>
+            )}
+            <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-muted/60 p-4">
+              <div className="min-w-[260px] flex-1 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium">Session progress</span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {reviewedCards.size} of {cards.length} reviewed · {masteredCards.size} mastered
+                  </span>
+                </div>
+                <Progress value={(reviewedCards.size / cards.length) * 100} className="h-2" />
+              </div>
+              <Button
+                onClick={handleEndSession}
+                variant="outline"
+                disabled={reviewedCards.size === 0}
+                className="min-h-11 rounded-xl shadow-none"
+              >
+                End Session & Save
+              </Button>
+            </section>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {cards.map((c) => {
+                const isReviewed = reviewedCards.has(c.id);
+                const isMastered = masteredCards.has(c.id);
+
+                return (
+                  <Card
+                    key={c.id}
+                    className={cn(
+                      "gap-0 rounded-2xl p-5",
+                      isReviewed && (isMastered ? "border-status-success border-2" : "border-status-warning border-2"),
+                    )}
+                  >
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Question</p>
+                      <p className="text-lg font-semibold leading-7">{c.front}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-status-success">Answer</p>
+                      <p className="text-muted-foreground">{c.back}</p>
+                      <p className="pt-1 text-xs text-muted-foreground">
+                        {c.topic} · {c.difficulty}
+                      </p>
                     </div>
-                    <div className="flex gap-2 mt-3">
-                      <Button 
-                        size="sm" 
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        size="sm"
                         variant={isMastered ? "default" : "outline"}
                         onClick={() => handleCardReview(c.id, true)}
                         disabled={isReviewed}
+                        className="min-h-11 flex-1 rounded-xl shadow-none"
                       >
                         ✓ Mastered
                       </Button>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant={isReviewed && !isMastered ? "secondary" : "outline"}
                         onClick={() => handleCardReview(c.id, false)}
                         disabled={isReviewed}
+                        className="min-h-11 flex-1 rounded-xl shadow-none"
                       >
                         ↻ Review Later
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </>
-      )}
+                  </Card>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </main>
     </div>
   );
 }
