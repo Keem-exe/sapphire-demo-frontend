@@ -454,8 +454,8 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="px-4 py-2.5 border-b bg-gradient-to-r from-primary/5 to-secondary/5 flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-sm flex-shrink-0">
+      <div className="px-4 py-2.5 border-b bg-secondary/40 flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-sky flex items-center justify-center shadow-sm flex-shrink-0">
           <Sparkles className="w-3.5 h-3.5 text-white" />
         </div>
         <div className="min-w-0">
@@ -476,7 +476,7 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
             <div key={i} className={cn("flex items-end gap-2", isUser ? "flex-row-reverse" : "flex-row")}>
               {/* Avatar */}
               {!isUser && (
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 mb-0.5 shadow-sm">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-sky flex items-center justify-center flex-shrink-0 mb-0.5 shadow-sm">
                   <Sparkles className="w-3 h-3 text-white" />
                 </div>
               )}
@@ -487,7 +487,7 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
                   className={cn(
                     "rounded-2xl px-3.5 py-2.5 shadow-sm",
                     isUser
-                      ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-br-sm"
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
                       : "bg-card border border-border/60 rounded-bl-sm"
                   )}
                 >
@@ -513,7 +513,7 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
         {/* Typing indicator */}
         {loading && (
           <div className="flex items-end gap-2">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0 shadow-sm">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-sky flex items-center justify-center flex-shrink-0 shadow-sm">
               <Sparkles className="w-3 h-3 text-white" />
             </div>
             <div className="bg-card border border-border/60 rounded-2xl rounded-bl-sm px-3.5 py-2.5 shadow-sm">
@@ -564,7 +564,7 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
             onClick={() => sendMessage()}
             disabled={loading || !message.trim()}
             size="sm"
-            className="rounded-xl h-9 w-9 p-0 flex-shrink-0 bg-gradient-to-br from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-sm"
+            className="rounded-xl h-9 w-9 p-0 flex-shrink-0 bg-primary hover:bg-primary/90 shadow-none"
           >
             <Send className="w-3.5 h-3.5" />
           </Button>

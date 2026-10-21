@@ -247,7 +247,7 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
     return (
       <div className="h-full flex items-center justify-center p-8">
         <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
             <Save className="w-8 h-8 text-primary" />
           </div>
           <h3 className="text-lg font-semibold text-foreground mb-2">No Note Selected</h3>

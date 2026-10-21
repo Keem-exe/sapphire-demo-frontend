@@ -17,7 +17,7 @@ export function ToolsPanel() {
       name: "Quiz Generator",
       icon: Brain,
       description: "Test your knowledge with AI-generated quizzes",
-      color: "from-blue-500 to-cyan-500",
+      color: "g-quiz",
       milestone: "1 sprint for confidence boost",
       path: `/workspace/${subjectId}/quiz`,
     },
@@ -26,7 +26,7 @@ export function ToolsPanel() {
       name: "Study Reels",
       icon: Video,
       description: "Quick video summaries of key concepts",
-      color: "from-pink-500 to-rose-500",
+      color: "g-reels",
       milestone: "Finish this topic today",
       path: `/workspace/${subjectId}/reels`,
     },
@@ -35,7 +35,7 @@ export function ToolsPanel() {
       name: "Flashcards",
       icon: Layers,
       description: "Create and review flashcards for memorization",
-      color: "from-green-500 to-emerald-500",
+      color: "g-flash",
       milestone: "2 sessions to 70% mastery",
       path: `/workspace/${subjectId}/flashcards`,
     },
@@ -44,7 +44,7 @@ export function ToolsPanel() {
       name: "Assignment",
       icon: ClipboardList,
       description: "AI-written practice assignment with a mark scheme",
-      color: "from-amber-500 to-orange-500",
+      color: "g-assign",
       milestone: "Practise exam-style answers",
       path: `/workspace/${subjectId}/assignment`,
     },
@@ -71,15 +71,15 @@ export function ToolsPanel() {
               <Card
                 key={tool.id}
                 onClick={() => handleToolClick(tool.path)}
-                className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 cursor-pointer overflow-hidden focus-within:ring-2 focus-within:ring-primary/70"
+                className="group gap-0 rounded-2xl py-0 transition-colors hover:border-primary/50 cursor-pointer overflow-hidden focus-within:ring-2 focus-within:ring-primary/70"
               >
-                <div className={`h-1 bg-gradient-to-r ${tool.color}`} />
+                <div className={`h-1 ${tool.color}`} />
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <div
-                      className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tool.color} flex items-center justify-center flex-shrink-0`}
+                      className={`w-10 h-10 rounded-xl ${tool.color} ${tool.id === "assignment" ? "text-accent-foreground" : "text-white"} flex items-center justify-center flex-shrink-0`}
                     >
-                      <Icon className="w-5 h-5 text-white" />
+                      <Icon className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-sm text-foreground mb-1 group-hover:text-primary transition-colors">

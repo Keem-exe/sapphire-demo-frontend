@@ -74,7 +74,7 @@ export function NotebookSidebar({ subjectId, unit, notes, onNoteSelect, onNewNot
         </div>
         <Button
           onClick={handleNewNote}
-          className="w-full rounded-lg bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground"
+          className="w-full rounded-lg text-primary-foreground"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Note

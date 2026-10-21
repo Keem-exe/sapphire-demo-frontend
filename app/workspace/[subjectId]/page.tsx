@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Sparkles, ArrowLeft, Menu, NotebookText, Brain, Video, Layers, User } from "lucide-react"
+import { ArrowLeft, Menu, NotebookText, Brain, Video, Layers, User } from "lucide-react"
 import { NotebookSidebar } from "@/components/workspace/notebook-sidebar"
 import { NoteEditor } from "@/components/workspace/note-editor"
 import { AiChatPanel } from "@/components/workspace/ai-chat-panel"
@@ -140,7 +141,7 @@ export default function WorkspacePage() {
   return (
     <div className="h-screen flex flex-col bg-background pb-16 lg:pb-0">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm z-20">
+      <header className="hdr z-20">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -163,9 +164,7 @@ export default function WorkspacePage() {
               >
                 <Menu className="w-4 h-4" />
               </Button>
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-md">
-                <Sparkles className="w-4 h-4 text-primary-foreground" />
-              </div>
+              <Image src="/sapphire-logo.png" alt="Sapphire OS" width={89} height={30} className="h-[30px] w-auto" />
             </div>
           </div>
         </div>
@@ -175,19 +174,19 @@ export default function WorkspacePage() {
       <div className="border-b bg-background/95 backdrop-blur-sm z-10">
         <div className="px-4 py-2 overflow-x-auto">
           <div className="flex items-center gap-2 min-w-max">
-            <Button size="sm" className="rounded-full min-h-11 bg-blue-600 hover:bg-blue-500 text-white focus-visible:ring-2 focus-visible:ring-blue-300" onClick={() => router.push(`/workspace/${subjectId}`)}>
+            <Button size="sm" className="rounded-full min-h-11 shadow-none focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push(`/workspace/${subjectId}`)}>
               <NotebookText className="w-4 h-4 mr-2" />
               Notebook
             </Button>
-            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-blue-300 text-blue-700 hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-blue-300" onClick={() => router.push(`/workspace/${subjectId}/quiz`)}>
+            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-primary/30 text-primary-strong shadow-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push(`/workspace/${subjectId}/quiz`)}>
               <Brain className="w-4 h-4 mr-2" />
               Quiz
             </Button>
-            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-pink-300 text-pink-700 hover:bg-pink-50 focus-visible:ring-2 focus-visible:ring-pink-300" onClick={() => router.push(`/workspace/${subjectId}/reels`)}>
+            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-primary/30 text-primary-strong shadow-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push(`/workspace/${subjectId}/reels`)}>
               <Video className="w-4 h-4 mr-2" />
               Reels
             </Button>
-            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-green-300 text-green-700 hover:bg-green-50 focus-visible:ring-2 focus-visible:ring-green-300" onClick={() => router.push(`/workspace/${subjectId}/flashcards`)}>
+            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-primary/30 text-primary-strong shadow-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push(`/workspace/${subjectId}/flashcards`)}>
               <Layers className="w-4 h-4 mr-2" />
               Flashcards
             </Button>
@@ -215,7 +214,7 @@ export default function WorkspacePage() {
         <div
           className={`${
             showNotebook ? "w-80" : "w-0"
-          } hidden lg:flex transition-all duration-300 border-r bg-card/30 backdrop-blur-sm overflow-hidden flex-col`}
+          } hidden lg:flex transition-all duration-300 border-r bg-card overflow-hidden flex-col`}
         >
           <div className="px-4 py-2 border-b bg-background/70">
             <p className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">Section 1</p>
@@ -271,7 +270,7 @@ export default function WorkspacePage() {
         <div
           className={`${
             showTools ? "w-80" : "w-0"
-          } hidden lg:flex transition-all duration-300 border-l bg-card/30 backdrop-blur-sm overflow-hidden flex-col`}
+          } hidden lg:flex transition-all duration-300 border-l bg-card overflow-hidden flex-col`}
         >
           <div className="px-4 py-2 border-b bg-background/70">
             <p className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">Section 3</p>
@@ -301,7 +300,7 @@ export default function WorkspacePage() {
             <TabsContent value="syllabus" className="h-full mt-0">
               <div className="p-3 overflow-auto h-full">
                 {subjectId === "csec-math" && subject.syllabus ? (
-                  <Card className="shadow-sm">
+                  <Card className="rounded-2xl">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm">CSEC Mathematics Syllabus</CardTitle>
                     </CardHeader>
