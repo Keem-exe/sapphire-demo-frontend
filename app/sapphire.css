@@ -369,3 +369,68 @@
 .g-flash { background: linear-gradient(90deg, var(--tool-flashcards), var(--tool-flashcards-end)); }
 .g-assign { background: linear-gradient(90deg, var(--tool-assignment), var(--tool-assignment-end)); }
 .g-cape { background: linear-gradient(90deg, var(--level-cape), var(--tool-reels)); }
+
+/* Workspace: draggable column handle and narrow-screen stacking */
+.rz {
+  flex: none;
+  width: 12px;
+  margin: 0 -6px;
+  position: relative;
+  z-index: 3;
+  cursor: col-resize;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  touch-action: none;
+}
+.rz::before {
+  content: "";
+  width: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+.rz .rz-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 40px;
+  border-radius: 9999px;
+  background: var(--border);
+  border: 1px solid var(--card);
+  transform: translate(-50%, -50%);
+}
+.rz:hover::before,
+.rz:focus-visible::before,
+.rz.on::before {
+  background: var(--primary);
+}
+.rz:hover .rz-grip,
+.rz:focus-visible .rz-grip,
+.rz.on .rz-grip {
+  background: var(--primary);
+}
+.rz:focus-visible {
+  outline: none;
+}
+@media (max-width: 760px) {
+  .ws-root {
+    height: auto;
+    min-height: 100vh;
+  }
+  .ws-body {
+    flex-direction: column;
+  }
+  .ws-side {
+    flex: 1 1 auto !important;
+    max-width: none !important;
+    border: 0 !important;
+  }
+  .rz,
+  .ws-rail {
+    display: none !important;
+  }
+}

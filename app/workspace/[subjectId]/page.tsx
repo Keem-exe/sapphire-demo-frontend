@@ -2,16 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Menu, NotebookText, Brain, Video, Layers, User } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { NotebookSidebar } from "@/components/workspace/notebook-sidebar"
 import { NoteEditor } from "@/components/workspace/note-editor"
 import { AiChatPanel } from "@/components/workspace/ai-chat-panel"
-import { ToolsPanel } from "@/components/workspace/tools-panel"
+import { WorkspaceShell } from "@/components/workspace/workspace-shell"
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
 
 interface Note {
@@ -21,6 +17,15 @@ interface Note {
   preview: string
   content: string
   tags: string[]
+}
+
+const SUBJECT_EMOJI: Record<SubjectId, string> = {
+  "csec-math": "📐",
+  "csec-chem": "🧪",
+  "csec-eng": "📚",
+  "cape-puremath": "📈",
+  "cape-phys": "⚡",
+  "cape-bio": "🧬",
 }
 
 const normalizeSubjectId = (id: string): SubjectId => {
@@ -49,10 +54,6 @@ export default function WorkspacePage() {
     }
   }, [rawId, subjectId, router])
 
-  const [showNotebook, setShowNotebook] = useState(true)
-  const [showTools, setShowTools] = useState(true)
-  const [activeMobileTab, setActiveMobileTab] = useState<"notebook" | "tools" | "coach">("notebook")
-  const [isHydrating, setIsHydrating] = useState(true)
   const [selectedNote, setSelectedNote] = useState<Note | null>(null)
   const [isCreatingNote, setIsCreatingNote] = useState(false)
   const [notes, setNotes] = useState<Note[]>([])
@@ -68,7 +69,6 @@ export default function WorkspacePage() {
         console.error('Failed to load notes:', e)
       }
     }
-    setTimeout(() => setIsHydrating(false), 180)
   }, [subjectId])
 
   // Save notes to localStorage whenever they change
@@ -139,110 +139,27 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background pb-16 lg:pb-0">
-      {/* Header */}
-      <header className="hdr z-20">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={handleBack} className="rounded-lg">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">📚</span>
-                <h1 className="text-lg font-semibold text-foreground">{subject.name}</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowNotebook(!showNotebook)}
-                className="rounded-lg lg:hidden min-h-11 focus-visible:ring-2 focus-visible:ring-primary/70"
-              >
-                <Menu className="w-4 h-4" />
-              </Button>
-              <Image src="/sapphire-logo.png" alt="Sapphire OS" width={89} height={30} className="h-[30px] w-auto" />
-            </div>
+    <WorkspaceShell
+      subjectId={subjectId}
+      subjectName={subject.name}
+      subjectEmoji={SUBJECT_EMOJI[subjectId] || "📚"}
+      levelLabel={subjectId.startsWith("cape") ? "CAPE" : "CSEC"}
+      topics={subject.topics}
+      noteTitles={notes.map((n) => n.title)}
+      onBack={handleBack}
+      notebook={
+        <>
+          <div className="flex min-w-[220px] max-w-[260px] flex-[1_1_220px] flex-col border-r">
+            <NotebookSidebar
+              subjectId={subjectId}
+              notes={notes}
+              onNoteSelect={handleNoteSelect}
+              onNewNote={handleNewNote}
+              onNoteDelete={handleNoteDelete}
+            />
           </div>
-        </div>
-      </header>
-
-      {/* Subject Navigation */}
-      <div className="border-b bg-background/95 backdrop-blur-sm z-10">
-        <div className="px-4 py-2 overflow-x-auto">
-          <div className="flex items-center gap-2 min-w-max">
-            <Button size="sm" className="rounded-full min-h-11 shadow-none focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push(`/workspace/${subjectId}`)}>
-              <NotebookText className="w-4 h-4 mr-2" />
-              Notebook
-            </Button>
-            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-primary/30 text-primary-strong shadow-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push(`/workspace/${subjectId}/quiz`)}>
-              <Brain className="w-4 h-4 mr-2" />
-              Quiz
-            </Button>
-            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-primary/30 text-primary-strong shadow-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push(`/workspace/${subjectId}/reels`)}>
-              <Video className="w-4 h-4 mr-2" />
-              Reels
-            </Button>
-            <Button size="sm" variant="outline" className="rounded-full min-h-11 border-primary/30 text-primary-strong shadow-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push(`/workspace/${subjectId}/flashcards`)}>
-              <Layers className="w-4 h-4 mr-2" />
-              Flashcards
-            </Button>
-            <Button size="sm" variant="ghost" className="rounded-full min-h-11 focus-visible:ring-2 focus-visible:ring-primary/70" onClick={() => router.push("/profile")}>
-              <User className="w-4 h-4 mr-2" />
-              Profile
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Subject Dashboard Layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {isHydrating ? (
-          <div className="absolute inset-x-0 top-[116px] bottom-0 p-4 bg-background/80 z-10 animate-pulse">
-            <div className="grid lg:grid-cols-[320px_1fr_320px] gap-4 h-full">
-              <div className="rounded-2xl bg-muted/60" />
-              <div className="rounded-2xl bg-muted/60" />
-              <div className="rounded-2xl bg-muted/60" />
-            </div>
-          </div>
-        ) : null}
-
-        {/* Left Panel - Notebook Index */}
-        <div
-          className={`${
-            showNotebook ? "w-80" : "w-0"
-          } hidden lg:flex transition-all duration-300 border-r bg-card overflow-hidden flex-col`}
-        >
-          <div className="px-4 py-2 border-b bg-background/70">
-            <p className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">Section 1</p>
-            <p className="text-sm font-medium text-foreground">Notebook Index</p>
-          </div>
-          <NotebookSidebar 
-            subjectId={subjectId} 
-            notes={notes}
-            onNoteSelect={handleNoteSelect}
-            onNewNote={handleNewNote}
-            onNoteDelete={handleNoteDelete}
-          />
-        </div>
-
-        {/* Center Panel - Notebook First */}
-        <div className="flex-1 flex flex-col overflow-hidden lg:border-x border-border/50">
-          <div className="border-b px-4 py-3 bg-card/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">Section 2</p>
-                <p className="text-sm font-semibold text-foreground">Focus Notebook</p>
-                <p className="text-xs text-foreground/75">Capture ideas first, then use AI and tools.</p>
-              </div>
-              <Badge variant="secondary">{notes.length} notes</Badge>
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden hidden lg:block">
-            <NoteEditor 
+          <div className="min-w-0 flex-[999_1_360px]">
+            <NoteEditor
               note={isCreatingNote ? null : selectedNote}
               onSave={handleNoteSave}
               onClose={handleEditorClose}
@@ -250,136 +167,9 @@ export default function WorkspacePage() {
               subjectId={subjectId}
             />
           </div>
-
-          <div className="flex-1 overflow-hidden lg:hidden">
-            {activeMobileTab === "notebook" ? (
-              <NoteEditor 
-                note={isCreatingNote ? null : selectedNote}
-                onSave={handleNoteSave}
-                onClose={handleEditorClose}
-                isCreatingNote={isCreatingNote}
-                subjectId={subjectId}
-              />
-            ) : null}
-            {activeMobileTab === "tools" ? <ToolsPanel /> : null}
-            {activeMobileTab === "coach" ? <AiChatPanel subjectName={subject.name} /> : null}
-          </div>
-        </div>
-
-        {/* Right Panel - Tools + AI Coach */}
-        <div
-          className={`${
-            showTools ? "w-80" : "w-0"
-          } hidden lg:flex transition-all duration-300 border-l bg-card overflow-hidden flex-col`}
-        >
-          <div className="px-4 py-2 border-b bg-background/70">
-            <p className="text-xs uppercase tracking-wide font-semibold text-muted-foreground">Section 3</p>
-            <p className="text-sm font-medium text-foreground">Tools, Coach, Syllabus</p>
-          </div>
-          <Tabs defaultValue="tools" className="h-full">
-            <div className="p-3 border-b bg-background/70">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="tools">Tools</TabsTrigger>
-                <TabsTrigger value="coach">AI Coach</TabsTrigger>
-                <TabsTrigger value="syllabus">Syllabus</TabsTrigger>
-              </TabsList>
-            </div>
-
-            <TabsContent value="tools" className="h-full mt-0">
-              <div className="h-full overflow-hidden">
-                <ToolsPanel />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="coach" className="h-full mt-0">
-              <div className="h-full overflow-hidden">
-                <AiChatPanel subjectName={subject.name} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="syllabus" className="h-full mt-0">
-              <div className="p-3 overflow-auto h-full">
-                {subjectId === "csec-math" && subject.syllabus ? (
-                  <Card className="rounded-2xl">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm">CSEC Mathematics Syllabus</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-xs">
-                      <div>
-                        <p className="font-semibold text-foreground mb-2">Major Topics</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {subject.syllabus.majorTopics.map((topic) => (
-                            <Badge key={topic} variant="secondary" className="text-[11px]">
-                              {topic}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="font-semibold text-foreground mb-2">Goals</p>
-                        <ul className="space-y-1.5 text-muted-foreground list-disc pl-4">
-                          {subject.syllabus.goals.map((goal) => (
-                            <li key={goal}>{goal}</li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div>
-                        <p className="font-semibold text-foreground mb-2">Skill Weighting</p>
-                        <div className="space-y-1.5 text-muted-foreground">
-                          <p>Algorithmic: {subject.syllabus.skillWeighting.algorithmic}%</p>
-                          <p>Conceptual: {subject.syllabus.skillWeighting.conceptual}%</p>
-                          <p>Reasoning: {subject.syllabus.skillWeighting.reasoning}%</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card>
-                    <CardContent className="p-4 text-sm text-muted-foreground">
-                      Syllabus details are being prepared for this subject.
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-
-      {/* Bottom Navigation for Mobile */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t bg-background/95 backdrop-blur-sm px-3 py-2">
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            size="sm"
-            variant={activeMobileTab === "notebook" ? "default" : "outline"}
-            onClick={() => setActiveMobileTab("notebook")}
-            className="min-h-11 rounded-xl"
-          >
-            <NotebookText className="w-4 h-4 mr-1" />
-            Notebook
-          </Button>
-          <Button
-            size="sm"
-            variant={activeMobileTab === "tools" ? "default" : "outline"}
-            onClick={() => setActiveMobileTab("tools")}
-            className="min-h-11 rounded-xl"
-          >
-            <Layers className="w-4 h-4 mr-1" />
-            Tools
-          </Button>
-          <Button
-            size="sm"
-            variant={activeMobileTab === "coach" ? "default" : "outline"}
-            onClick={() => setActiveMobileTab("coach")}
-            className="min-h-11 rounded-xl"
-          >
-            <Brain className="w-4 h-4 mr-1" />
-            Coach
-          </Button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+      chat={() => <AiChatPanel subjectName={subject.name} />}
+    />
   )
 }
