@@ -1,9 +1,10 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Sparkles, GraduationCap, BookOpen } from "lucide-react"
+import type React from "react"
+import Image from "next/image"
+import { ArrowUpRight } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Sapphy } from "@/components/sapphy"
 
 export default function SelectLevelPage() {
   const router = useRouter()
@@ -16,98 +17,78 @@ export default function SelectLevelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl">
+    <main className="wash-soft flex min-h-screen items-center justify-center px-4 py-14">
+      <div className="doodles doodles-blue" style={{ "--dx": "-30px", "--dy": "-30px" } as React.CSSProperties} aria-hidden="true" />
+      <div className="flex w-full max-w-[880px] flex-col gap-10">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
-              <Sparkles className="w-8 h-8 text-primary-foreground" />
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-3">
-            Choose Your Level
-          </h1>
-          <p className="text-muted-foreground text-lg">Select the examination level you're preparing for</p>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Image src="/sapphire-logo.png" alt="Sapphire OS" width={166} height={56} priority className="mb-2 h-14 w-auto" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 1 of 2</p>
+          <h1 className="text-4xl font-bold leading-10">Choose your level</h1>
+          <p className="text-base text-muted-foreground">Pick the exam you're preparing for. You can change it later.</p>
         </div>
 
         {/* Level Selection Cards */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid gap-7 [grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr))]">
           {/* CSEC Card */}
-          <Card className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-xl cursor-pointer group">
-            <CardHeader className="space-y-4 pb-6">
-              <div className="flex justify-center">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <BookOpen className="w-10 h-10 text-white" />
+          <button type="button" onClick={() => handleSelectLevel("csec")} className="lvl lvl-csec">
+            <div className="lvl-art">
+              <span className="lvl-shadow lvl-shadow-hop" />
+              <Sapphy blush className="lvl-sap lvl-sap-hop relative z-[1] size-[170px]" />
+              <p className="lvl-strip">Caribbean Secondary Education Certificate</p>
+            </div>
+            <div className="lvl-foot">
+              <div className="lvl-l">
+                <h2 className="lvl-t">CSEC</h2>
+                <div className="lvl-pills">
+                  <span className="lvl-pill">One syllabus per subject</span>
+                  <span className="lvl-pill">Foundation for CAPE</span>
                 </div>
               </div>
-              <div className="text-center space-y-2">
-                <CardTitle className="text-2xl font-bold">CSEC</CardTitle>
-                <CardDescription className="text-base">Caribbean Secondary Education Certificate</CardDescription>
+              <span className="lvl-div" />
+              <div className="lvl-r">
+                <div>
+                  <p className="lvl-big">Forms 4–5</p>
+                  <p className="lvl-cap">Secondary level</p>
+                </div>
+                <span className="lvl-cta lvl-cta-a">
+                  Choose CSEC
+                  <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                </span>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Secondary level examinations
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Single subject focus
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Foundation for CAPE studies
-                </li>
-              </ul>
-              <Button
-                onClick={() => handleSelectLevel("csec")}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                Select CSEC
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </button>
 
           {/* CAPE Card */}
-          <Card className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-xl cursor-pointer group">
-            <CardHeader className="space-y-4 pb-6">
-              <div className="flex justify-center">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <GraduationCap className="w-10 h-10 text-white" />
+          <button type="button" onClick={() => handleSelectLevel("cape")} className="lvl lvl-cape">
+            <div className="lvl-art">
+              <span className="lvl-shadow lvl-shadow-bob" />
+              <Sapphy className="lvl-sap lvl-sap-bob relative z-[1] size-[170px]" />
+              <p className="lvl-strip">Caribbean Advanced Proficiency Examination</p>
+            </div>
+            <div className="lvl-foot">
+              <div className="lvl-l">
+                <h2 className="lvl-t">CAPE</h2>
+                <div className="lvl-pills">
+                  <span className="lvl-pill">Unit 1 and Unit 2 per subject</span>
+                  <span className="lvl-pill">University preparation</span>
                 </div>
               </div>
-              <div className="text-center space-y-2">
-                <CardTitle className="text-2xl font-bold">CAPE</CardTitle>
-                <CardDescription className="text-base">Caribbean Advanced Proficiency Examination</CardDescription>
+              <span className="lvl-div" />
+              <div className="lvl-r">
+                <div>
+                  <p className="lvl-big">Sixth Form</p>
+                  <p className="lvl-cap">Lower and Upper Sixth</p>
+                </div>
+                <span className="lvl-cta lvl-cta-b">
+                  Choose CAPE
+                  <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                </span>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Advanced level examinations
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  Unit 1 and Unit 2 structure
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  University preparation
-                </li>
-              </ul>
-              <Button
-                onClick={() => handleSelectLevel("cape")}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                Select CAPE
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </button>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
