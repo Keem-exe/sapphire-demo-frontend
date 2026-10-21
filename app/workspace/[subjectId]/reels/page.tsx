@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
 import {
-  Sparkles,
+  Video,
   ArrowLeft,
   Play,
   Pause,
@@ -397,27 +397,27 @@ export default function ReelsPage() {
   const topicButtons = [ALL_TOPICS, ...availableTopics]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10">
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-background">
+      <header className="hdr">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={handleBack} className="rounded-lg">
+              <Button variant="ghost" size="sm" onClick={handleBack} className="min-h-11 rounded-lg shadow-none">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
               <div className="h-6 w-px bg-border" />
               <div className="flex items-center gap-2">
-                <span className="text-2xl">{subjectIcon}</span>
+                <span className="g-reels inline-flex size-8 items-center justify-center rounded-lg text-white" aria-hidden="true">
+                  <Video className="size-4" />
+                </span>
                 <div>
                   <h1 className="text-lg font-semibold text-foreground">{subject.name} Reels</h1>
                   <p className="text-xs text-muted-foreground">Quick study videos, curated for your subject</p>
                 </div>
               </div>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-md">
-              <Sparkles className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <span className="text-2xl" aria-hidden="true">{subjectIcon}</span>
           </div>
         </div>
       </header>
@@ -426,8 +426,8 @@ export default function ReelsPage() {
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-[1fr_400px] gap-6">
             <div className="space-y-4">
-              <Card className="border-2 shadow-2xl overflow-hidden bg-black">
-                <div className="relative aspect-[9/16] max-h-[600px] bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+              <Card className="gap-0 overflow-hidden rounded-3xl border-0 bg-black py-0 shadow-lg">
+                <div className="relative aspect-[9/16] max-h-[600px] bg-gradient-to-br from-[#12306f] to-[#08142e] flex items-center justify-center">
                   {currentReel && isPlaying ? (
                     <iframe
                       key={`${currentReel.videoId}-${isMuted ? "muted" : "sound"}`}
@@ -471,7 +471,7 @@ export default function ReelsPage() {
                           <Button
                             size="lg"
                             onClick={() => setIsPlaying(true)}
-                            className="pointer-events-auto w-16 h-16 rounded-full bg-white/90 hover:bg-white text-black shadow-2xl"
+                            className="pointer-events-auto w-16 h-16 rounded-full bg-white/90 hover:bg-white text-black shadow-none"
                           >
                             <Play className="w-8 h-8 ml-1" />
                           </Button>
@@ -508,7 +508,7 @@ export default function ReelsPage() {
                           variant="ghost"
                           onClick={handleSave}
                           className={`w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm ${
-                            isSaved ? "text-yellow-500" : "text-white"
+                            isSaved ? "text-accent" : "text-white"
                           }`}
                         >
                           <Bookmark className={`w-6 h-6 ${isSaved ? "fill-current" : ""}`} />
@@ -569,7 +569,7 @@ export default function ReelsPage() {
                 </div>
               </Card>
 
-              <Card className="border-2">
+              <Card className="rounded-2xl">
                 <CardContent className="p-6">
                   <h3 className="text-lg font-semibold text-foreground mb-4">Reel Details</h3>
                   {currentReel ? (
@@ -591,7 +591,7 @@ export default function ReelsPage() {
             </div>
 
             <div className="lg:sticky lg:top-24 h-fit space-y-4">
-              <Card className="border-2">
+              <Card className="rounded-2xl">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <div>
@@ -604,7 +604,7 @@ export default function ReelsPage() {
                     <Button
                       variant={!showSaved ? "default" : "outline"}
                       size="sm"
-                      className="rounded-full"
+                      className="min-h-11 rounded-full shadow-none"
                       onClick={() => setShowSaved(false)}
                     >
                       All reels
@@ -612,7 +612,7 @@ export default function ReelsPage() {
                     <Button
                       variant={showSaved ? "default" : "outline"}
                       size="sm"
-                      className="rounded-full"
+                      className="min-h-11 rounded-full shadow-none"
                       onClick={() => setShowSaved(true)}
                     >
                       <Bookmark className="w-3 h-3 mr-1" />
@@ -625,7 +625,7 @@ export default function ReelsPage() {
                         key={topic}
                         variant={selectedTopic === topic ? "default" : "outline"}
                         size="sm"
-                        className="rounded-full"
+                        className="min-h-11 rounded-full shadow-none"
                         disabled={showSaved}
                         onClick={() => setSelectedTopic(topic)}
                       >
@@ -636,7 +636,7 @@ export default function ReelsPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-2">
+              <Card className="gap-0 overflow-hidden rounded-2xl py-0">
                 <div className="p-4 border-b">
                   <h3 className="text-lg font-semibold text-foreground">{showSaved ? "Saved Reels" : "All Reels"}</h3>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -669,13 +669,13 @@ export default function ReelsPage() {
                         }}
                         className={`cursor-pointer transition-all duration-200 ${
                           index === currentReelIndex
-                            ? "border-2 border-primary shadow-lg"
+                            ? "border-2 border-primary bg-primary/5"
                             : "border hover:border-primary/50"
                         }`}
                       >
                         <CardContent className="p-3">
                           <div className="flex gap-3">
-                            <div className="relative w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gradient-to-br from-primary/20 to-secondary/20">
+                            <div className="relative w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gradient-to-br from-navy to-[#061436]">
                               <img
                                 src={reel.thumbnail || "/placeholder.svg"}
                                 alt={reel.title}
@@ -700,7 +700,7 @@ export default function ReelsPage() {
                       </Card>
                     ))}
                     {hasMore ? (
-                      <Button variant="outline" size="sm" className="w-full" onClick={loadMore} disabled={loadingMore}>
+                      <Button variant="outline" size="sm" className="min-h-11 w-full shadow-none" onClick={loadMore} disabled={loadingMore}>
                         {loadingMore ? "Loading…" : "Load more"}
                       </Button>
                     ) : null}
