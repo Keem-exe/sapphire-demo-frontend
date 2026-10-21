@@ -14,6 +14,8 @@ import { AiRating } from "@/components/feedback/ai-rating"
 
 interface AiChatPanelProps {
   subjectName: string
+  /** Preload the sample conversation from the design (full-screen view, demo accounts only) */
+  sampleThread?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -364,19 +366,32 @@ function getStarterChips(subjectName: string): string[] {
 // ---------------------------------------------------------------------------
 // Main chat panel
 // ---------------------------------------------------------------------------
-export function AiChatPanel({ subjectName }: AiChatPanelProps) {
+// SAMPLE: conversation from the design, used to fill the full-screen view for accounts without a backend.
+const SAMPLE_THREAD: { role: "user" | "assistant"; content: string }[] = [
+  { role: "assistant", content: "**Hi there!** Full screen gives us room for longer explanations. What shall we work on?" },
+  { role: "user", content: "Walk me through completing the square" },
+  {
+    role: "assistant",
+    content:
+      "**Completing the square: x² + 6x + 2**\n\n1. Halve the x coefficient: 6 ÷ 2 = 3.\n2. Write (x + 3)², which expands to x² + 6x + 9.\n3. Subtract the extra 9 and keep the 2: (x + 3)² − 7.\n\nThe minimum value is −7, when x = −3.",
+  },
+]
+const SAMPLE_CHIPS = ["Give me one to try", "Make flashcards from this", "Add to my notes"]
+
+export function AiChatPanel({ subjectName, sampleThread = false }: AiChatPanelProps) {
+  const seeded = sampleThread && !hasAuthToken()
   const [message, setMessage] = useState("")
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; eventId?: number | string }[]>([
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; eventId?: number | string }[]>(seeded ? SAMPLE_THREAD : [
     {
       role: "assistant",
-      content: `## Welcome! I'm Sapphire 👋\n\nI'm your AI study companion for **${subjectName || "this subject"}**.\n\nAsk me anything — worked examples, concept breakdowns, exam technique, or practice questions. I'm here to make this click.`,
+      content: `## Welcome! I'm Sapphy 👋\n\nI'm your AI study companion for **${subjectName || "this subject"}**.\n\nAsk me anything — worked examples, concept breakdowns, exam technique, or practice questions. I'm here to make this click.`,
     },
   ])
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const starterChips = getStarterChips(subjectName)
-  const showChips = messages.length === 1
+  const starterChips = seeded ? SAMPLE_CHIPS : getStarterChips(subjectName)
+  const showChips = messages.length === (seeded ? SAMPLE_THREAD.length : 1)
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -458,8 +473,8 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
       <div className="px-4 py-2.5 border-b bg-secondary/40 flex items-center gap-2.5">
         <Sapphy className="size-10 flex-shrink-0" />
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-foreground">Sapphire AI Coach</p>
-          <p className="text-[10px] text-muted-foreground truncate">{subjectName} • CSEC/CAPE</p>
+          <p className="text-xs font-semibold text-foreground">Sapphy</p>
+          <p className="text-[10px] text-muted-foreground truncate">Sees what you're working on</p>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
@@ -510,7 +525,7 @@ export function AiChatPanel({ subjectName }: AiChatPanelProps) {
         {/* Typing indicator */}
         {loading && (
           <div className="flex items-end gap-2">
-            <Sapphy className="size-8 flex-shrink-0" />
+            <Sapphy mood="thinking" className="size-8 flex-shrink-0" />
             <div className="bg-card border border-border/60 rounded-2xl rounded-bl-sm px-3.5 py-2.5 shadow-sm">
               <TypingDots />
             </div>

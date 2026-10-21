@@ -169,7 +169,7 @@ export default function WorkspacePage() {
           </div>
         </>
       }
-      chat={() => <AiChatPanel subjectName={subject.name} />}
+      chat={({ fullScreen }) => <AiChatPanel subjectName={subject.name} sampleThread={fullScreen} />}
     />
   )
 }

@@ -46,6 +46,43 @@ type ReelItem = {
   isSaved?: boolean
 }
 
+// SAMPLE: reels shown to accounts without a backend session, so the screen looks like the design.
+// They have no video attached, so the player shows a placeholder instead of playing anything.
+const sampleReel = (
+  id: number,
+  title: string,
+  topic: string,
+  durationLabel: string,
+  durationSec: number,
+  views: number,
+  isSaved = false,
+): ReelItem => ({
+  id,
+  videoId: `sample-${id}`,
+  title,
+  description: "",
+  channelTitle: "Sapphire Study",
+  publishedAt: "",
+  durationSec,
+  durationLabel,
+  thumbnail: "",
+  topic,
+  youtubeViewCount: views,
+  likeCount: 0,
+  embedUrl: "",
+  watchUrl: "",
+  isSaved,
+})
+
+const SAMPLE_REELS: ReelItem[] = [
+  sampleReel(9001, "The discriminant in 60 seconds", "Algebra", "0:58", 58, 124000, true),
+  sampleReel(9002, "Completing the square, fast", "Algebra", "1:12", 72, 98000),
+  sampleReel(9003, "Factorising quadratics", "Algebra", "0:48", 48, 76000, true),
+  sampleReel(9004, "Mean, median and mode", "Statistics", "1:05", 65, 54000),
+  sampleReel(9005, "Laws of indices in 90 seconds", "Number Theory", "1:30", 90, 41000),
+  sampleReel(9006, "Solving simultaneous equations", "Linear Equations", "1:20", 80, 38000),
+]
+
 function formatCount(n: number): string {
   if (!n) return "0"
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
@@ -160,9 +197,19 @@ export default function ReelsPage() {
 
   useEffect(() => {
     if (!hasAuthToken()) {
+      // No backend session (demo account): show the sample reels, filtered like the real ones
+      const items = SAMPLE_REELS.filter((reel) =>
+        showSaved ? reel.isSaved : selectedTopic === ALL_TOPICS || reel.topic === selectedTopic,
+      )
       setIsLoading(false)
-      setReels([])
-      setError("Study reels need a Sapphire account. Please sign in with a registered account.")
+      setError(null)
+      setTopicFallback(false)
+      setHasMore(false)
+      setReels(items)
+      setCurrentReelIndex(0)
+      setIsPlaying(false)
+      setLikedReels(new Set())
+      setSavedReels(new Set(items.filter((reel) => reel.isSaved).map((reel) => reel.id)))
       return
     }
     if (backendSubjectId == null && !showSaved) return
@@ -330,7 +377,7 @@ export default function ReelsPage() {
   }
 
   const handleShare = async () => {
-    if (!currentReel) return
+    if (!currentReel || !currentReel.watchUrl) return
 
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
@@ -388,7 +435,7 @@ export default function ReelsPage() {
       <main className="mx-auto flex max-w-[1200px] flex-wrap items-start gap-7 px-6 pb-16 pt-7">
         <section className="flex min-w-0 flex-[999_1_420px] flex-col items-center gap-4">
           <div className="relative aspect-[9/16] w-full max-w-[380px] overflow-hidden rounded-3xl bg-gradient-to-br from-[#12306f] to-[#08142e] shadow-lg">
-            {currentReel && isPlaying ? (
+            {currentReel && isPlaying && currentReel.embedUrl ? (
               <iframe
                 key={`${currentReel.videoId}-${isMuted ? "muted" : "sound"}`}
                 src={withPlayerParams(currentReel.embedUrl, { muted: isMuted, videoId: currentReel.videoId })}
@@ -398,9 +445,9 @@ export default function ReelsPage() {
                 referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
               />
-            ) : currentReel ? (
+            ) : currentReel && currentReel.thumbnail ? (
               <img
-                src={currentReel.thumbnail || "/placeholder.svg"}
+                src={currentReel.thumbnail}
                 alt={currentReel.title}
                 className="absolute inset-0 h-full w-full object-cover"
               />
@@ -550,7 +597,7 @@ export default function ReelsPage() {
                     )}
                   >
                     <span className="relative inline-flex h-[76px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-gradient-to-br from-navy to-[#061436] text-white">
-                      <img src={reel.thumbnail || "/placeholder.svg"} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      {reel.thumbnail ? <img src={reel.thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover" /> : null}
                       <Play className="relative size-5 drop-shadow-lg" />
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
