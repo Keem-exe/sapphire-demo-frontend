@@ -30,6 +30,11 @@
   --navy: #0a2a6b;
   --level-csec: #0f4fba;
   --streak: #b86e00;
+  --status-success: #009966;
+  --status-success-subtle: #f0fdf4;
+  --status-warning: #d08700;
+  --status-warning-subtle: #fefce8;
+  --status-danger-subtle: #fef2f2;
   --level-cape: #0a2a6b;
   --tool-quiz: #1058c9;
   --tool-quiz-end: #72d7fa;
@@ -119,6 +124,11 @@
   --color-sky: var(--sky);
   --color-navy: var(--navy);
   --color-streak: var(--streak);
+  --color-status-success: var(--status-success);
+  --color-status-success-subtle: var(--status-success-subtle);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-subtle: var(--status-warning-subtle);
+  --color-status-danger-subtle: var(--status-danger-subtle);
   --color-primary-strong: var(--primary-strong);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

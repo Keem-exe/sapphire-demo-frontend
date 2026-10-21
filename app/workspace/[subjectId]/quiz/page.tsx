@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import type React from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
 import { AiRating } from "@/components/feedback/ai-rating";
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
-import { CheckCircle2, XCircle, Trophy, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Brain, CheckCircle2, XCircle, Trophy, AlertTriangle } from "lucide-react";
 
 type Question = {
   id: string;
@@ -242,22 +245,61 @@ export default function QuizPage() {
 
   if (!subject) return <div className="p-6">Unknown subject.</div>;
 
+  const chip = (on: boolean) =>
+    cn(
+      "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 text-sm",
+      on && "border-primary bg-primary/5",
+    );
+
+  const header = (title: string, opts?: { tile?: boolean; right?: React.ReactNode; badge?: string }) => (
+    <header className="hdr">
+      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-3 px-6">
+        <div className="flex items-center gap-3">
+          <Button asChild variant="ghost" size="sm" className="min-h-11 shadow-none">
+            <Link href={`/workspace/${subjectId}`}>
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              {subject.name}
+            </Link>
+          </Button>
+          <span className="h-6 w-px bg-border" />
+          {opts?.tile && (
+            <span className="g-quiz inline-flex size-8 items-center justify-center rounded-lg text-white" aria-hidden="true">
+              <Brain className="size-4" />
+            </span>
+          )}
+          <h1 className="text-lg font-semibold">{title}</h1>
+          {opts?.badge && <Badge variant="outline">{opts.badge}</Badge>}
+        </div>
+        {opts?.right}
+      </div>
+    </header>
+  );
+
   // Already-submitted banner (409)
   if (alreadySubmitted) {
     return (
-      <div className="p-6 max-w-xl mx-auto">
-        <Card className="border-yellow-300 bg-yellow-50">
-          <CardContent className="p-6 flex items-start gap-4">
-            <AlertTriangle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+      <div className="min-h-screen bg-background">
+        {header("Quiz")}
+        <div className="mx-auto max-w-xl p-6">
+          <div className="flex items-start gap-3 rounded-xl border border-status-warning/40 bg-status-warning-subtle p-5">
+            <AlertTriangle className="mt-0.5 size-5 shrink-0 text-status-warning" aria-hidden="true" />
             <div>
-              <p className="font-semibold text-yellow-800">You've already completed this quiz</p>
-              <p className="text-sm text-yellow-700 mt-1">View your previous results or generate a new quiz to continue practicing.</p>
-              <Button className="mt-4" onClick={() => { setAlreadySubmitted(false); setQuestions([]); }}>
+              <p className="font-semibold">You've already completed this quiz</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                View your previous results or generate a new quiz to continue practicing.
+              </p>
+              <Button
+                className="mt-4 rounded-xl"
+                onClick={() => {
+                  setAlreadySubmitted(false);
+                  setQuestions([]);
+                }}
+              >
                 Start a New Quiz
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -265,63 +307,96 @@ export default function QuizPage() {
   // Setup form (no questions yet)
   if (!questions.length) {
     return (
-      <div className="p-6 max-w-xl mx-auto space-y-6 text-center">
-        <h1 className="text-3xl font-bold">Quiz — {subject.name}</h1>
-
-        <div className="space-y-2 text-left">
-          <Label>Topics</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {subject.topics.map((t) => (
-              <label key={t} className="flex items-center gap-2">
-                <Checkbox checked={topics.includes(t)} onCheckedChange={() => toggle(topics, setTopics, t)} />
-                <span>{t}</span>
-              </label>
-            ))}
+      <div className="min-h-screen bg-background">
+        {header("Quiz", { tile: true })}
+        <main className="mx-auto flex max-w-[720px] flex-col gap-6 px-6 pb-16 pt-10">
+          <div className="space-y-1.5">
+            <h2 className="text-3xl font-bold leading-9">Build your quiz</h2>
+            <p className="text-base text-muted-foreground">
+              Choose topics and a difficulty. Sapphire writes fresh CSEC-style questions each time.
+            </p>
           </div>
-        </div>
 
-        <div className="space-y-2 text-left">
-          <Label>Question Types</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {["MCQ", "True/False", "Short Answer", "Fill in the Blank"].map((t) => (
-              <label key={t} className="flex items-center gap-2">
-                <Checkbox checked={types.includes(t)} onCheckedChange={() => toggle(types, setTypes, t)} />
-                <span>{t}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+          <Card className="gap-6 rounded-2xl p-6">
+            <fieldset className="space-y-2.5">
+              <legend className="mb-2.5 text-sm font-medium">
+                Topics <span className="font-normal text-muted-foreground">· {topics.length} selected</span>
+              </legend>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
+                {subject.topics.map((t) => (
+                  <label key={t} className={chip(topics.includes(t))}>
+                    <Checkbox checked={topics.includes(t)} onCheckedChange={() => toggle(topics, setTopics, t)} />
+                    <span>{t}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
-        <div className="flex items-center justify-center gap-3">
-          <Label>Number of Questions</Label>
-          <Input
-            type="number"
-            min={1}
-            max={20}
-            value={count}
-            onChange={(e) => setCount(Number(e.target.value))}
-            className="w-20"
-          />
-        </div>
+            <fieldset>
+              <legend className="mb-2.5 text-sm font-medium">Question types</legend>
+              <div className="flex flex-wrap gap-2">
+                {["MCQ", "True/False", "Short Answer", "Fill in the Blank"].map((t) => (
+                  <label key={t} className={chip(types.includes(t))}>
+                    <Checkbox checked={types.includes(t)} onCheckedChange={() => toggle(types, setTypes, t)} />
+                    <span>{t}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
-        <div className="space-y-2 text-left">
-          <Label>Difficulty</Label>
-          <select
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value)}
-            className="border rounded p-2 w-full"
-          >
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </select>
-        </div>
+            <div className="flex flex-wrap gap-6">
+              <div className="min-w-[200px] flex-1 space-y-2">
+                <span id="difficulty-label" className="text-sm font-medium">
+                  Difficulty
+                </span>
+                <div className="flex gap-0.5 rounded-xl bg-muted p-[3px]" role="radiogroup" aria-labelledby="difficulty-label">
+                  {["easy", "medium", "hard"].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      role="radio"
+                      aria-checked={difficulty === d}
+                      onClick={() => setDifficulty(d)}
+                      className={cn(
+                        "min-h-11 flex-1 rounded-lg text-sm font-medium capitalize text-muted-foreground",
+                        difficulty === d && "bg-card text-foreground shadow-xs",
+                      )}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="question-count">
+                  Questions <span className="font-normal text-muted-foreground">(1–20)</span>
+                </Label>
+                <Input
+                  id="question-count"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={count}
+                  onChange={(e) => setCount(Number(e.target.value))}
+                  className="h-11 w-24 rounded-xl text-center"
+                />
+              </div>
+            </div>
 
-        <Button onClick={fetchQuiz} disabled={loading}>
-          {loading ? "Generating..." : "Generate Quiz"}
-        </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-5">
+              <p className="text-xs text-muted-foreground">Counts towards your streak</p>
+              <Button onClick={fetchQuiz} disabled={loading} className="h-11 rounded-xl px-6 font-semibold">
+                {loading ? "Generating..." : "Generate Quiz"}
+              </Button>
+            </div>
+          </Card>
 
-        {err && <p className="text-red-600 mt-3">{err}</p>}
+          {err && (
+            <div role="alert" className="rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+              {err}
+            </div>
+          )}
+        </main>
       </div>
     );
   }
@@ -330,61 +405,92 @@ export default function QuizPage() {
   if (backendResult) {
     const pct = Math.round(backendResult.percentageScore ?? 0);
     return (
-      <div className="max-w-3xl mx-auto p-6 space-y-6">
-        {/* Score badge */}
-        <Card className={cn("border-2", backendResult.passed ? "border-green-400 bg-green-50" : "border-red-400 bg-red-50")}>
-          <CardContent className="p-6 flex items-center gap-4">
-            <Trophy className={cn("w-10 h-10 flex-shrink-0", backendResult.passed ? "text-green-600" : "text-red-500")} />
-            <div>
-              <p className="text-3xl font-bold">{pct}%</p>
-              <p className="text-sm text-muted-foreground">
+      <div className="min-h-screen bg-background">
+        {header("Quiz results")}
+        <main className="mx-auto flex max-w-[760px] flex-col gap-4 px-6 pb-16 pt-8">
+          {/* Score badge */}
+          <section
+            className={cn(
+              "flex flex-wrap items-center gap-5 rounded-2xl border-2 p-6",
+              backendResult.passed
+                ? "border-status-success bg-status-success-subtle"
+                : "border-destructive bg-status-danger-subtle",
+            )}
+          >
+            <span
+              className={cn(
+                "inline-flex size-16 shrink-0 items-center justify-center rounded-full bg-card",
+                backendResult.passed ? "text-status-success" : "text-destructive",
+              )}
+            >
+              <Trophy className="size-8" aria-hidden="true" />
+            </span>
+            <div className="min-w-[200px] flex-1 space-y-1">
+              <div className="flex items-center gap-3">
+                <span className="text-[40px] font-bold leading-[44px] tabular-nums">{pct}%</span>
+                <Badge className={cn("text-white", backendResult.passed ? "bg-status-success" : "bg-destructive")}>
+                  {backendResult.passed ? "Passed" : "Not passed"}
+                </Badge>
+              </div>
+              <p className="tabular-nums text-muted-foreground">
                 {backendResult.correctQuestions} / {backendResult.totalQuestions} correct
               </p>
-              <Badge className={cn("mt-1", backendResult.passed ? "bg-green-600" : "bg-red-500")}>
-                {backendResult.passed ? "Passed" : "Not passed"}
-              </Badge>
             </div>
-            {feedback && <p className="ml-auto text-sm text-muted-foreground max-w-xs text-right">{feedback}</p>}
-          </CardContent>
-        </Card>
+            {feedback && <p className="min-w-[260px] flex-1 font-medium">{feedback}</p>}
+          </section>
 
-        {/* Per-question results */}
-        <div className="space-y-3">
+          <div>
+            <Button
+              className="h-11 rounded-xl px-6 font-semibold"
+              onClick={() => {
+                setQuestions([]);
+                setBackendResult(null);
+                setResult(null);
+                setFeedback(null);
+              }}
+            >
+              Try Another Quiz
+            </Button>
+          </div>
+
+          <h2 className="mt-3 text-lg font-semibold">Review your answers</h2>
+          {/* Per-question results */}
           {backendResult.questionResults.map((r, i) => (
-            <Card key={r.id} className={cn("border", r.isCorrect ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/50")}>
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-medium flex items-start gap-2">
-                  {r.isCorrect
-                    ? <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                    : <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                  }
-                  <span>Q{i + 1}. {r.questionText}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-1 text-sm">
+            <article
+              key={r.id}
+              className={cn(
+                "space-y-2 rounded-2xl border p-4",
+                r.isCorrect ? "border-status-success/35 bg-card" : "border-destructive/35 bg-status-danger-subtle",
+              )}
+            >
+              <p className="flex items-start gap-2.5 font-semibold">
+                {r.isCorrect ? (
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-status-success" aria-hidden="true" />
+                ) : (
+                  <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+                )}
+                <span>
+                  Q{i + 1}. {r.questionText}
+                </span>
+              </p>
+              <div className="space-y-1 pl-[26px] text-sm">
                 <p>
                   <span className="text-muted-foreground">Your answer: </span>
-                  <span className={r.isCorrect ? "text-green-700 font-medium" : "text-red-600 font-medium"}>
+                  <span className={cn("font-medium", r.isCorrect ? "text-status-success" : "text-destructive")}>
                     {r.userAnswer || <em>No answer</em>}
                   </span>
                 </p>
                 {!r.isCorrect && (
                   <p>
                     <span className="text-muted-foreground">Correct answer: </span>
-                    <span className="text-green-700 font-medium">{r.correctAnswer}</span>
+                    <span className="font-medium text-status-success">{r.correctAnswer}</span>
                   </p>
                 )}
-                {r.explanation && (
-                  <p className="text-muted-foreground mt-2 text-xs leading-relaxed">{r.explanation}</p>
-                )}
-              </CardContent>
-            </Card>
+                {r.explanation && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{r.explanation}</p>}
+              </div>
+            </article>
           ))}
-        </div>
-
-        <Button onClick={() => { setQuestions([]); setBackendResult(null); setResult(null); setFeedback(null); }}>
-          Try Another Quiz
-        </Button>
+        </main>
       </div>
     );
   }
@@ -392,76 +498,118 @@ export default function QuizPage() {
   // Local results (no backend)
   if (result !== null) {
     return (
-      <div className="p-6 max-w-xl mx-auto space-y-4">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-3xl font-bold">
-              {result} / {questions.length}
-            </p>
-            <p className="text-lg text-muted-foreground mt-1">
-              {Math.round((result / questions.length) * 100)}%
-            </p>
-            {feedback && <p className="text-sm mt-3 text-muted-foreground">{feedback}</p>}
-          </CardContent>
-        </Card>
-        <Button onClick={() => { setQuestions([]); setResult(null); setFeedback(null); }}>
-          Try Another Quiz
-        </Button>
+      <div className="min-h-screen bg-background">
+        {header("Quiz results")}
+        <main className="mx-auto flex max-w-[760px] flex-col gap-4 px-6 pb-16 pt-8">
+          <Card className="rounded-2xl">
+            <div className="px-6 text-center">
+              <p className="text-3xl font-bold tabular-nums">
+                {result} / {questions.length}
+              </p>
+              <p className="mt-1 text-lg text-muted-foreground">{Math.round((result / questions.length) * 100)}%</p>
+              {feedback && <p className="mt-3 text-sm text-muted-foreground">{feedback}</p>}
+            </div>
+          </Card>
+          <div>
+            <Button
+              className="h-11 rounded-xl px-6 font-semibold"
+              onClick={() => {
+                setQuestions([]);
+                setResult(null);
+                setFeedback(null);
+              }}
+            >
+              Try Another Quiz
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
 
   // Active quiz
+  const answered = questions.filter((q) => answers[q.id]?.trim()).length;
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold">Quiz — {subject.name}</h1>
-      {aiEventId != null && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          How are these questions? <AiRating key={aiEventId} eventId={aiEventId} />
-        </div>
-      )}
+    <div className="min-h-screen bg-background">
+      {header(`${subject.name} quiz`, {
+        badge: difficulty.charAt(0).toUpperCase() + difficulty.slice(1),
+        right: (
+          <div className="flex min-w-0 flex-[0_1_280px] items-center gap-3">
+            <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+              {answered} of {questions.length} answered
+            </span>
+            <Progress value={(answered / questions.length) * 100} className="h-2 flex-1" />
+          </div>
+        ),
+      })}
+      <main className="mx-auto flex max-w-[760px] flex-col gap-4 px-6 pb-16 pt-8">
+        {aiEventId != null && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            How are these questions? <AiRating key={aiEventId} eventId={aiEventId} />
+          </div>
+        )}
 
-      {questions.map((q, idx) => (
-        <Card key={q.id}>
-          <CardContent className="space-y-2 p-4">
-            <div className="font-semibold">
-              {idx + 1}. {q.question}
+        {questions.map((q, idx) => (
+          <Card key={q.id} className="gap-3.5 rounded-2xl p-5">
+            <div className="flex items-start gap-3 text-base font-semibold leading-6">
+              <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[13px] tabular-nums">
+                {idx + 1}
+              </span>
+              {q.question}
             </div>
 
-            {q.type === "True/False" ? (
-              <RadioGroup onValueChange={(v) => setAnswers({ ...answers, [q.id]: v })} value={answers[q.id]}>
-                {["True", "False"].map((opt) => (
-                  <div key={opt} className="flex items-center space-x-2">
-                    <RadioGroupItem value={opt} id={`${q.id}-${opt}`} />
-                    <Label htmlFor={`${q.id}-${opt}`}>{opt}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            ) : q.type === "Short Answer" || q.type === "Fill in the Blank" ? (
-              <Input
-                placeholder="Your answer..."
-                value={answers[q.id] || ""}
-                onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-              />
-            ) : (
-              <RadioGroup onValueChange={(v) => setAnswers({ ...answers, [q.id]: v })} value={answers[q.id]}>
-                {q.options.map((opt) => (
-                  <div key={opt} className="flex items-center space-x-2">
-                    <RadioGroupItem value={opt} id={`${q.id}-${opt}`} />
-                    <Label htmlFor={`${q.id}-${opt}`}>{opt}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+            <div className="pl-10">
+              {q.type === "True/False" ? (
+                <RadioGroup
+                  className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-2"
+                  onValueChange={(v) => setAnswers({ ...answers, [q.id]: v })}
+                  value={answers[q.id]}
+                >
+                  {["True", "False"].map((opt) => (
+                    <label key={opt} htmlFor={`${q.id}-${opt}`} className={chip(answers[q.id] === opt)}>
+                      <RadioGroupItem value={opt} id={`${q.id}-${opt}`} />
+                      {opt}
+                    </label>
+                  ))}
+                </RadioGroup>
+              ) : q.type === "Short Answer" || q.type === "Fill in the Blank" ? (
+                <Input
+                  placeholder="Your answer..."
+                  value={answers[q.id] || ""}
+                  onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                  className="h-11 rounded-xl"
+                />
+              ) : (
+                <RadioGroup
+                  className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-2"
+                  onValueChange={(v) => setAnswers({ ...answers, [q.id]: v })}
+                  value={answers[q.id]}
+                >
+                  {q.options.map((opt) => (
+                    <label key={opt} htmlFor={`${q.id}-${opt}`} className={chip(answers[q.id] === opt)}>
+                      <RadioGroupItem value={opt} id={`${q.id}-${opt}`} />
+                      {opt}
+                    </label>
+                  ))}
+                </RadioGroup>
+              )}
+            </div>
+          </Card>
+        ))}
 
-      <Button onClick={submit} disabled={submitting}>
-        {submitting ? "Submitting…" : "Submit Quiz"}
-      </Button>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-muted-foreground">You can change answers until you submit.</p>
+          <Button onClick={submit} disabled={submitting} className="h-11 rounded-xl px-6 font-semibold">
+            {submitting ? "Submitting…" : "Submit Quiz"}
+          </Button>
+        </div>
 
-      {err && <p className="text-red-600 text-sm">{err}</p>}
+        {err && (
+          <div role="alert" className="rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+            {err}
+          </div>
+        )}
+      </main>
     </div>
   );
 }
