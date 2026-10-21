@@ -9,8 +9,10 @@ import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { AuthShell } from "@/components/auth-shell"
+import { cn } from "@/lib/utils"
+import { AlertCircle, BookOpen, GraduationCap } from "lucide-react"
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -63,84 +65,69 @@ export default function SignUpPage() {
     }
   }
 
+  const fieldClass = "h-11 rounded-2xl"
+  const selectClass =
+    "h-11 w-full rounded-2xl border border-input bg-card px-3.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
-      <Card className="w-full max-w-md border-2 shadow-2xl backdrop-blur-sm bg-card/95">
-        <CardHeader className="space-y-4 text-center pb-8">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
-              <Sparkles className="w-8 h-8 text-primary-foreground" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Create Account
-            </CardTitle>
-            <CardDescription className="text-base text-muted-foreground">
-              Join Sapphire and start your journey
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                {error}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="John"
-                  required
-                  className="h-11 rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Doe"
-                  required
-                  className="h-11 rounded-xl"
-                />
-              </div>
-            </div>
-
+    <AuthShell tagline="Create your account and get study tools built around your subjects and your exam date.">
+      <Card className="w-full max-w-[480px] gap-0 rounded-3xl border-border p-8 shadow-lg">
+        <div className="mb-6 space-y-1.5">
+          <h2 className="text-[32px] font-bold leading-[38px]">Create your account</h2>
+          <p className="text-[15px] leading-[22px] text-muted-foreground">Join Sapphire OS and start your journey</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-[18px]">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="firstName">First name</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="student@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="John"
                 required
-                className="h-11 rounded-xl"
+                className={fieldClass}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last name</Label>
+              <Input
+                id="lastName"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Doe"
+                required
+                className={fieldClass}
+              />
+            </div>
+          </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="student@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className={fieldClass}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="age">Age</Label>
               <Input
                 id="age"
                 type="number"
-                placeholder="Enter your age"
+                placeholder="15"
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
                 required
-                className="h-11 rounded-xl"
+                className={fieldClass}
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="gender">Gender</Label>
               <select
@@ -148,76 +135,94 @@ export default function SignUpPage() {
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
                 required
-                className="w-full h-11 rounded-xl border border-input bg-background px-3"
+                className={selectClass}
               >
-                <option value="">Select gender</option>
+                <option value="">Select</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="accountType">Account Type</Label>
-              <select
-                id="accountType"
-                value={accountType}
-                onChange={(e) => setAccountType(e.target.value)}
-                required
-                className="w-full h-11 rounded-xl border border-input bg-background px-3"
-              >
-                <option value="">Select account type</option>
-                <option value="Student">Student</option>
-                <option value="Teacher">Teacher</option>
-              </select>
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-medium leading-none">I am a</legend>
+            <div className="flex gap-0.5 rounded-xl bg-muted p-[3px]" role="radiogroup" aria-label="Account type">
+              {[
+                { value: "Student", Icon: GraduationCap },
+                { value: "Teacher", Icon: BookOpen },
+              ].map(({ value, Icon }) => (
+                <label
+                  key={value}
+                  className={cn(
+                    "flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg text-sm font-medium text-muted-foreground has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50",
+                    accountType === value && "bg-card text-foreground shadow-xs",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="accountType"
+                    value={value}
+                    checked={accountType === value}
+                    onChange={(e) => setAccountType(e.target.value)}
+                    required
+                    className="sr-only"
+                  />
+                  <Icon className="size-4" aria-hidden="true" />
+                  {value}
+                </label>
+              ))}
             </div>
+          </fieldset>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-11 rounded-xl"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className={fieldClass}
+            />
+            <span className="text-xs text-muted-foreground">At least 8 characters.</span>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="h-11 rounded-xl"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className={fieldClass}
+            />
+          </div>
 
-            <Button
-              type="submit"
-              className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-              disabled={isLoading}
+          {error && (
+            <div
+              role="alert"
+              className="flex items-start gap-2.5 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive"
             >
-              {isLoading ? "Creating account..." : "Create Account"}
-            </Button>
-
-            <div className="text-center">
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-sm text-muted-foreground hover:text-primary"
-                asChild
-              >
-                <Link href="/">{"Already have an account? Log in"}</Link>
-              </Button>
+              <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              {error}
             </div>
-          </form>
-        </CardContent>
+          )}
+
+          <Button type="submit" className="h-11 w-full rounded-2xl font-semibold" disabled={isLoading}>
+            {isLoading ? "Creating account..." : "Create account"}
+          </Button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/" className="font-medium text-primary hover:underline">
+              Log in
+            </Link>
+          </p>
+        </form>
       </Card>
-    </div>
+    </AuthShell>
   )
 }
