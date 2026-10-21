@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useLayoutEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
 import { learningIntelligenceService } from "@/lib/services/learning-intelligence-service"
 import { useToast } from "@/hooks/use-toast"
+import { MessageContent } from "@/components/workspace/ai-chat-panel"
+import { cn } from "@/lib/utils"
 
 interface Note {
   id: string
@@ -41,6 +43,19 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
   const [predictiveText, setPredictiveText] = useState("")
   const [predictiveLoading, setPredictiveLoading] = useState(false)
   const [lastPredictedInput, setLastPredictedInput] = useState("")
+  const [preview, setPreview] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const pendingSelection = useRef<[number, number] | null>(null)
+
+  // Restore the selection after a toolbar action rewrites the content
+  useLayoutEffect(() => {
+    const selection = pendingSelection.current
+    const textarea = textareaRef.current
+    if (!selection || !textarea) return
+    pendingSelection.current = null
+    textarea.focus()
+    textarea.setSelectionRange(selection[0], selection[1])
+  }, [content])
 
   useEffect(() => {
     if (note) {
@@ -186,51 +201,68 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
     setTags(tags.filter((tag) => tag !== tagToRemove))
   }
 
+  // Apply a formatting action to the current selection. Notes are stored as markdown, so the
+  // toolbar wraps or prefixes the selected text, and a second click on the same action undoes it.
   const insertFormatting = (format: string) => {
-    const textarea = document.querySelector("textarea") as HTMLTextAreaElement
+    const textarea = textareaRef.current
     if (!textarea) return
 
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
-    const selectedText = content.substring(start, end)
+    let next = content
+    let selStart = start
+    let selEnd = end
 
-    let newText = ""
-    let cursorOffset = 0
-
-    switch (format) {
-      case "bold":
-        newText = `**${selectedText}**`
-        cursorOffset = 2
-        break
-      case "italic":
-        newText = `*${selectedText}*`
-        cursorOffset = 1
-        break
-      case "h1":
-        newText = `# ${selectedText}`
-        cursorOffset = 2
-        break
-      case "h2":
-        newText = `## ${selectedText}`
-        cursorOffset = 3
-        break
-      case "ul":
-        newText = `- ${selectedText}`
-        cursorOffset = 2
-        break
-      case "ol":
-        newText = `1. ${selectedText}`
-        cursorOffset = 3
-        break
+    if (format === "bold" || format === "italic") {
+      const len = format === "bold" ? 2 : 1
+      const mark = "*".repeat(len)
+      // Work on the text itself: any markers already inside the selection count as surrounding ones
+      let s = start
+      let e = end
+      while (s < e && content[s] === "*") s++
+      while (e > s && content[e - 1] === "*") e--
+      let before = 0
+      while (content[s - 1 - before] === "*") before++
+      let after = 0
+      while (content[e + after] === "*") after++
+      const around = Math.min(before, after)
+      // "**" = bold, "*" = italic, "***" = both
+      const active = format === "bold" ? around >= 2 : around % 2 === 1
+      if (active) {
+        next = content.slice(0, s - len) + content.slice(s, e) + content.slice(e + len)
+        selStart = s - len
+        selEnd = e - len
+      } else {
+        next = content.slice(0, s) + mark + content.slice(s, e) + mark + content.slice(e)
+        selStart = s + len
+        selEnd = e + len
+      }
+    } else {
+      // Line formats apply to every line touched by the selection
+      const blockStart = content.lastIndexOf("\n", start - 1) + 1
+      const newlineAfter = content.indexOf("\n", end)
+      const blockEnd = newlineAfter === -1 ? content.length : newlineAfter
+      const lines = content.slice(blockStart, blockEnd).split("\n")
+      const anyPrefix = /^(#{1,6} |[-*] |\d+\. )/
+      const prefixFor = (i: number) =>
+        format === "h1" ? "# " : format === "h2" ? "## " : format === "ul" ? "- " : `${i + 1}. `
+      const matches = (line: string, i: number) =>
+        format === "ol" ? /^\d+\. /.test(line) : line.startsWith(prefixFor(i)) && !(format === "h1" && line.startsWith("##"))
+      const allOn = lines.every((l, i) => l.trim() === "" || matches(l, i))
+      const out = lines.map((line, i) => {
+        if (line.trim() === "") return line
+        const bare = line.replace(anyPrefix, "")
+        return allOn ? bare : prefixFor(i) + bare
+      })
+      const replaced = out.join("\n")
+      next = content.slice(0, blockStart) + replaced + content.slice(blockEnd)
+      selStart = blockStart
+      selEnd = blockStart + replaced.length
     }
 
-    const newContent = content.substring(0, start) + newText + content.substring(end)
-    setContent(newContent)
-
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(start + cursorOffset, start + cursorOffset + selectedText.length)
-    }, 0)
+    if (next === content) return
+    pendingSelection.current = [selStart, selEnd]
+    setContent(next)
   }
 
   const acceptPrediction = () => {
@@ -292,6 +324,8 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
             onClick={() => insertFormatting("bold")}
             className="h-8 w-8 p-0"
             title="Bold"
+            aria-label="Bold"
+            disabled={preview}
           >
             <Bold className="w-4 h-4" />
           </Button>
@@ -301,6 +335,8 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
             onClick={() => insertFormatting("italic")}
             className="h-8 w-8 p-0"
             title="Italic"
+            aria-label="Italic"
+            disabled={preview}
           >
             <Italic className="w-4 h-4" />
           </Button>
@@ -311,6 +347,8 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
             onClick={() => insertFormatting("h1")}
             className="h-8 w-8 p-0"
             title="Heading 1"
+            aria-label="Heading 1"
+            disabled={preview}
           >
             <Heading1 className="w-4 h-4" />
           </Button>
@@ -320,6 +358,8 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
             onClick={() => insertFormatting("h2")}
             className="h-8 w-8 p-0"
             title="Heading 2"
+            aria-label="Heading 2"
+            disabled={preview}
           >
             <Heading2 className="w-4 h-4" />
           </Button>
@@ -330,6 +370,8 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
             onClick={() => insertFormatting("ul")}
             className="h-8 w-8 p-0"
             title="Bullet List"
+            aria-label="Bullet List"
+            disabled={preview}
           >
             <List className="w-4 h-4" />
           </Button>
@@ -339,23 +381,55 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
             onClick={() => insertFormatting("ol")}
             className="h-8 w-8 p-0"
             title="Numbered List"
+            aria-label="Numbered List"
+            disabled={preview}
           >
             <ListOrdered className="w-4 h-4" />
           </Button>
           </div>
-          <Button
-            variant={predictiveEnabled ? "default" : "outline"}
-            size="sm"
-            onClick={() => setPredictiveEnabled((value) => !value)}
-            className="h-8 text-xs rounded-md"
-          >
-            AI Predict
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5 rounded-lg bg-muted p-[3px]" role="group" aria-label="Editor mode">
+              <button
+                type="button"
+                aria-pressed={!preview}
+                onClick={() => setPreview(false)}
+                className={cn("h-7 rounded-md px-2.5 text-xs font-medium text-muted-foreground", !preview && "bg-card text-foreground shadow-xs")}
+              >
+                Write
+              </button>
+              <button
+                type="button"
+                aria-pressed={preview}
+                onClick={() => setPreview(true)}
+                className={cn("h-7 rounded-md px-2.5 text-xs font-medium text-muted-foreground", preview && "bg-card text-foreground shadow-xs")}
+              >
+                Preview
+              </button>
+            </div>
+            <Button
+              variant={predictiveEnabled ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPredictiveEnabled((value) => !value)}
+              disabled={preview}
+              className="h-8 text-xs rounded-md"
+            >
+              AI Predict
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Content Editor */}
       <div className="flex-1 overflow-auto p-4">
+        {preview ? (
+          <div className="min-h-full rounded-md p-3 text-base">
+            {content.trim() ? (
+              <MessageContent content={content} msgKey="note-preview" />
+            ) : (
+              <p className="text-muted-foreground">Nothing to preview yet. Switch to Write and add some notes.</p>
+            )}
+          </div>
+        ) : (
         <div className="relative min-h-full">
           {predictiveEnabled && predictiveText ? (
             <div className="pointer-events-none absolute inset-0 whitespace-pre-wrap break-words rounded-md p-3 text-base leading-relaxed">
@@ -365,6 +439,7 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
           ) : null}
 
           <Textarea
+            ref={textareaRef}
             placeholder="Start writing your notes..."
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -372,12 +447,19 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
               if (e.key === "Tab" && predictiveText) {
                 e.preventDefault()
                 acceptPrediction()
+              } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+                e.preventDefault()
+                insertFormatting("bold")
+              } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
+                e.preventDefault()
+                insertFormatting("italic")
               }
             }}
             className="min-h-full border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 resize-none text-base leading-relaxed"
           />
         </div>
-        {predictiveEnabled ? (
+        )}
+        {predictiveEnabled && !preview ? (
           <div className="mt-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             {predictiveLoading ? (
               <span>AI is thinking of your next phrase...</span>

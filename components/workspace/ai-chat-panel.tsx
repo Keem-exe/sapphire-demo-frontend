@@ -176,7 +176,7 @@ function parseBlocks(md: string): Block[] {
   return blocks
 }
 
-function MessageContent({ content, msgKey }: { content: string; msgKey: string }) {
+export function MessageContent({ content, msgKey }: { content: string; msgKey: string }) {
   const blocks = parseBlocks(content)
 
   return (
