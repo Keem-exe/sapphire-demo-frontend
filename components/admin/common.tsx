@@ -37,16 +37,16 @@ export function PageHeader({ title, description, actions }: { title: string; des
 }
 
 const RISK_STYLES: Record<RiskLevel, string> = {
-  critical: "bg-red-500/15 text-red-600 border-red-500/30 dark:text-red-400",
-  high: "bg-orange-500/15 text-orange-600 border-orange-500/30 dark:text-orange-400",
-  medium: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30 dark:text-yellow-400",
-  low: "bg-blue-500/15 text-blue-600 border-blue-500/30 dark:text-blue-400",
+  critical: "bg-destructive/10 text-destructive border-destructive/30",
+  high: "bg-streak/10 text-streak border-streak/30",
+  medium: "bg-status-warning-subtle text-status-warning border-status-warning/40",
+  low: "bg-primary/10 text-primary-strong border-primary/30",
 }
 export const RISK_DOT: Record<RiskLevel, string> = {
-  critical: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-blue-500",
+  critical: "bg-destructive",
+  high: "bg-streak",
+  medium: "bg-status-warning",
+  low: "bg-primary",
 }
 
 export function RiskBadge({ level }: { level: RiskLevel }) {
@@ -60,9 +60,9 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
 export function RoleBadge({ role }: { role: string }) {
   const style =
     role === "admin"
-      ? "bg-purple-500/15 text-purple-600 border-purple-500/30 dark:text-purple-400"
+      ? "bg-navy/10 text-navy border-navy/30"
       : role === "teacher"
-        ? "bg-teal-500/15 text-teal-600 border-teal-500/30 dark:text-teal-400"
+        ? "bg-sky/30 text-primary-strong border-sky"
         : ""
   return (
     <Badge variant="outline" className={cn("capitalize", style)}>
@@ -75,7 +75,7 @@ export function StatusBadge({ suspended }: { suspended: boolean }) {
   return suspended ? (
     <Badge variant="destructive">Suspended</Badge>
   ) : (
-    <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+    <Badge variant="outline" className="border-status-success/30 bg-status-success-subtle text-status-success">
       Active
     </Badge>
   )

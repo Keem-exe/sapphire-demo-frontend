@@ -268,7 +268,7 @@ export function StudyDetails({ open, onOpenChange }: { open: boolean; onOpenChan
         {d && (
           <>
             {d.lowEffortStudents?.length > 0 && (
-              <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm">
+              <div className="rounded-md border border-status-warning/40 bg-status-warning-subtle p-3 text-sm">
                 <p className="mb-2 font-medium">Logging in but not really studying</p>
                 <NamedTable rows={d.lowEffortStudents} cols={[{ head: "Student", render: student }, { head: "Interactions", render: (r) => num(r.interactions) }, { head: "Minutes", render: (r) => num(r.minutes, 1) }]} />
               </div>

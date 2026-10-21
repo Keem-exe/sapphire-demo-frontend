@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { Toaster } from "sonner"
 import {
-  Activity,
   BookOpen,
   Brain,
   LayoutDashboard,
@@ -79,9 +79,11 @@ function LoginScreen() {
   const [busy, setBusy] = useState(false)
 
   return (
-    <div className="grid min-h-screen place-items-center p-6">
+    <div className="wash grid min-h-screen place-items-center p-6">
+      <div className="flex w-full max-w-sm flex-col items-center gap-5">
+      <Image src="/sapphire-logo.png" alt="Sapphire OS" width={142} height={48} priority className="h-12 w-auto" />
       <form
-        className="w-full max-w-sm space-y-4 rounded-lg border bg-card p-6 shadow-sm"
+        className="w-full space-y-4 rounded-3xl border bg-card p-8 shadow-lg"
         onSubmit={async (e) => {
           e.preventDefault()
           setBusy(true)
@@ -105,10 +107,11 @@ function LoginScreen() {
         <FormField label="Password">
           <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </FormField>
-        <Button type="submit" className="w-full" disabled={busy}>
+        <Button type="submit" className="h-11 w-full rounded-xl font-semibold" disabled={busy}>
           {busy && <Loader2 className="size-4 animate-spin" />} Sign in
         </Button>
       </form>
+      </div>
     </div>
   )
 }
@@ -123,8 +126,8 @@ function Frame({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="flex shrink-0 flex-col border-b bg-card md:sticky md:top-0 md:h-screen md:w-60 md:border-b-0 md:border-r">
         <div className="flex items-center gap-2 px-4 py-3 md:py-5">
-          <Activity className="size-5 text-primary" />
-          <span className="font-semibold">Sapphire Admin</span>
+          <Image src="/sapphire-logo.png" alt="Sapphire OS" width={83} height={28} className="h-7 w-auto" />
+          <span className="font-semibold">Admin</span>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-visible md:pb-0">
           {NAV.map(({ href, label, icon: Icon }) => {
@@ -155,7 +158,7 @@ function Frame({ children }: { children: React.ReactNode }) {
       </aside>
       <div className="min-w-0 flex-1">
         {maintenance && (
-          <div className="bg-red-600 px-4 py-2 text-center text-sm font-medium text-white">
+          <div className="bg-destructive px-4 py-2 text-center text-sm font-medium text-white">
             Maintenance mode is ON — the public app is unreachable for non-admins
           </div>
         )}

@@ -89,7 +89,7 @@ export function UserActions({ user, variant = "menu", onDeleted }: { user: Admin
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Temporary password</DialogTitle>
-            <DialogDescription className="flex items-start gap-2 text-amber-600 dark:text-amber-400">
+            <DialogDescription className="flex items-start gap-2 text-status-warning">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" /> This will not be shown again. Share it securely with the user.
             </DialogDescription>
           </DialogHeader>

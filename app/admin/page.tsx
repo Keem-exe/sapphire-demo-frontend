@@ -79,7 +79,7 @@ function PlatformOverview() {
         {health.data && (
           <div className="flex flex-wrap items-center gap-2 rounded-md border bg-card px-4 py-2 text-sm">
             <span className="flex items-center gap-2 font-medium">
-              <span className={`size-2.5 rounded-full ${health.data.database.healthy ? "bg-emerald-500" : "bg-red-500"}`} />
+              <span className={`size-2.5 rounded-full ${health.data.database.healthy ? "bg-status-success" : "bg-destructive"}`} />
               Database {health.data.database.healthy ? "healthy" : `down${health.data.database.error ? `: ${health.data.database.error}` : ""}`}
             </span>
             <Badge variant="outline">{health.data.environment}</Badge>
