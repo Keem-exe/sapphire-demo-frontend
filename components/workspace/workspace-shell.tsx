@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import Image from "next/image"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   BookOpen,
   CheckCircle2,
@@ -24,12 +24,10 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
-  Play,
   Target,
   Timer,
   Video,
   X,
-  ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -39,7 +37,7 @@ import { cn } from "@/lib/utils"
 
 type ItemId = "notebook" | "sapphy" | "flashcards" | "quiz" | "reels" | "assign" | "resources" | "syllabus"
 type Place = "left" | "right" | "off"
-type ViewId = "overview" | Exclude<ItemId, "sapphy">
+type ViewId = "overview" | "notebook" | "syllabus"
 
 // NOTE: everything below marked SAMPLE is placeholder content from the design.
 // There is no backend data for it yet, so replace it with real values when available.
@@ -74,20 +72,6 @@ const ITEM_DEFS: ItemDef[] = [
   { id: "syllabus", name: "Syllabus", status: "65% covered", icon: ListChecks, tint: "color-mix(in oklab, #1b4db3 14%, var(--card))", ink: "#14398a" },
 ]
 
-const SAMPLE_CARDS = [
-  { topic: "Algebra", q: "What does the discriminant b² − 4ac tell you?", a: "How many real roots a quadratic has: positive gives two, zero gives one, negative gives none." },
-  { topic: "Factorising", q: "Factorise completely: 3x² − 12x", a: "3x(x − 4). Take out every common factor, including the x." },
-  { topic: "Algebra", q: "State the quadratic formula.", a: "x = (−b ± √(b² − 4ac)) / 2a" },
-  { topic: "Indices", q: "Simplify a⁵ × a³", a: "a⁸. When you multiply powers of the same base, add the indices." },
-]
-
-const SAMPLE_GRADES = [
-  { id: "again", label: "Again", when: "< 1 min", color: "text-destructive", border: "border-destructive/35" },
-  { id: "hard", label: "Hard", when: "6 min", color: "text-status-warning", border: "border-status-warning/45" },
-  { id: "good", label: "Good", when: "1 day", color: "text-status-success", border: "border-status-success/45" },
-  { id: "easy", label: "Easy", when: "4 days", color: "text-primary", border: "border-primary/40" },
-]
-
 const SAMPLE_PLAN = [
   { day: "Mon", task: "Write notes on the quadratic formula", meta: "Notebook · 15 min", state: "done", view: "notebook", cta: "" },
   { day: "Tue", task: "Algebra quiz sprint", meta: "Quiz · scored 80%", state: "done", view: "quiz", cta: "" },
@@ -100,20 +84,10 @@ const SAMPLE_PLAN = [
 
 const SAMPLE_WEEK_MINUTES = [45, 30, 20, 0, 0, 0, 0]
 const SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-const SAMPLE_PAPERS = [
-  { name: "January 2024, Paper 2", desc: "Structured questions · suggested next", status: "Not started", cls: "border-border text-foreground" },
-  { name: "May–June 2024, Paper 1", desc: "Multiple choice", status: "74%", cls: "border-transparent bg-status-success text-white" },
-  { name: "January 2024, Paper 1", desc: "Multiple choice", status: "66%", cls: "border-status-warning/40 bg-status-warning-subtle text-status-warning" },
-  { name: "May–June 2023, Paper 1", desc: "Multiple choice", status: "64%", cls: "border-status-warning/40 bg-status-warning-subtle text-status-warning" },
-]
-const SAMPLE_REELS = [
-  { title: "Completing the square, fast", meta: "1:12 · Algebra" },
-  { title: "Factorising quadratics", meta: "0:48 · Algebra" },
-  { title: "Mean, median and mode", meta: "1:05 · Statistics" },
-]
 const SAMPLE_PCTS = [86, 72, 70, 64, 58, 51, 42, 38, 30]
 
-const FULL_ROUTE: Partial<Record<ViewId, string>> = {
+// Tools that live on their own screen: clicking them in a column goes to that page
+const PAGE_ROUTE: Partial<Record<ItemId, string>> = {
   flashcards: "flashcards",
   quiz: "quiz",
   reels: "reels",
@@ -163,6 +137,7 @@ export function WorkspaceShell({
   notebook,
   chat,
 }: WorkspaceShellProps) {
+  const router = useRouter()
   const [place, setPlace] = useState<Record<ItemId, Place>>(DEFAULT_PLACE)
   const [openL, setOpenL] = useState(false)
   const [openR, setOpenR] = useState(false)
@@ -176,12 +151,6 @@ export function WorkspaceShell({
   const [full, setFull] = useState(false)
   const [sapphy, setSapphy] = useState(true)
   const [focus, setFocus] = useState(false)
-  const [fcI, setFcI] = useState(0)
-  const [fcRev, setFcRev] = useState(false)
-  const [fcDone, setFcDone] = useState(8)
-  const [fcGood, setFcGood] = useState(6)
-  const [quizTopics, setQuizTopics] = useState<string[]>(topics.slice(0, 2))
-  const [difficulty, setDifficulty] = useState("Medium")
 
   const items = ITEM_DEFS.map((it) =>
     it.id === "notebook" ? { ...it, status: `${noteTitles.length} ${noteTitles.length === 1 ? "note" : "notes"}` } : it,
@@ -189,7 +158,7 @@ export function WorkspaceShell({
   const leftItems = items.filter((i) => i.id !== "sapphy" && place[i.id] === "left")
   const rightTools = items.filter((i) => i.id !== "sapphy" && place[i.id] === "right")
   const rightItems = [items.find((i) => i.id === "sapphy")!, ...rightTools]
-  const current = items.find((i) => i.id === view)
+  const current = items.find((i) => i.id === (view as ItemId))
   const viewName = current ? current.name : "Overview"
 
   const syllabusRows = topics.map((name, i) => ({ name, pct: SAMPLE_PCTS[i % SAMPLE_PCTS.length] }))
@@ -199,8 +168,10 @@ export function WorkspaceShell({
     if (id === "sapphy") {
       setOpenR(true)
       setSapphy(true)
+    } else if (PAGE_ROUTE[id]) {
+      router.push(`/workspace/${subjectId}/${PAGE_ROUTE[id]}`)
     } else {
-      setView(id)
+      setView(id as ViewId)
     }
   }
   const putItem = (id: ItemId, where: Place) => {
@@ -214,20 +185,11 @@ export function WorkspaceShell({
     setCustom(false)
     setCustomising(false)
   }
-  const gradeCard = (good: boolean) => {
-    setFcI((i) => i + 1)
-    setFcRev(false)
-    setFcDone((d) => Math.min(20, d + 1))
-    setFcGood((g) => g + (good ? 1 : 0))
-  }
-
   const showLRail = !focus && leftItems.length > 0 && !openL
   const showLPanel = !focus && leftItems.length > 0 && openL
   const showRRail = !focus && rightItems.length > 0 && !openR
   const showRPanel = openR && (!focus || sapphy)
 
-  const fullRoute = FULL_ROUTE[view]
-  const card = SAMPLE_CARDS[fcI % SAMPLE_CARDS.length]
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!drag) return
@@ -426,7 +388,7 @@ export function WorkspaceShell({
                     <span className="text-xs text-muted-foreground">{p.meta}</span>
                   </span>
                   {p.state === "today" && (
-                    <Button size="sm" className="min-h-11 shadow-none" onClick={() => { setView(p.view as ViewId); setFocus(true) }}>
+                    <Button size="sm" className="min-h-11 shadow-none" onClick={() => openItem(p.view as ItemId)}>
                       {p.cta}
                     </Button>
                   )}
@@ -520,184 +482,6 @@ export function WorkspaceShell({
     </div>
   )
 
-  const flashcards = (
-    <div className="mx-auto flex w-full max-w-[680px] flex-1 flex-col gap-4 p-6">
-      <div className="flex items-center justify-between text-xs tabular-nums text-muted-foreground">
-        <span>
-          Card {Math.min(20, fcDone + 1)} of 20 · {card.topic}
-        </span>
-        <span>{fcGood} remembered</span>
-      </div>
-      <Bar pct={Math.round((fcDone / 20) * 100)} />
-      <button
-        onClick={() => setFcRev(true)}
-        aria-label={fcRev ? "Flashcard, answer shown" : "Flashcard. Click to reveal the answer"}
-        className={cn("flex min-h-[280px] flex-col items-center justify-center gap-3.5 rounded-2xl border-2 bg-card p-8 text-center shadow-lg", fcRev ? "cursor-default" : "cursor-pointer")}
-      >
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Question</span>
-        <span className="text-[22px] font-semibold leading-[30px]">{card.q}</span>
-        {!fcRev && (
-          <span className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Play className="size-3.5" aria-hidden="true" />
-            Click the card to reveal the answer
-          </span>
-        )}
-        {fcRev && (
-          <>
-            <span className="h-px w-16 bg-border" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-status-success">Answer</span>
-            <span className="text-base leading-6">{card.a}</span>
-          </>
-        )}
-      </button>
-      {!fcRev && (
-        <div className="flex justify-center">
-          <Button className="h-11 min-w-[220px] rounded-xl font-semibold shadow-none" onClick={() => setFcRev(true)}>
-            Show answer
-          </Button>
-        </div>
-      )}
-      {fcRev && (
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-xs text-muted-foreground">How well did you remember it?</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {SAMPLE_GRADES.map((g) => (
-              <Button
-                key={g.id}
-                variant="outline"
-                onClick={() => gradeCard(g.id === "good" || g.id === "easy")}
-                className={cn("h-auto min-w-[104px] flex-col gap-0.5 rounded-xl px-3.5 py-2.5 shadow-none", g.border)}
-              >
-                <span className={cn("font-semibold", g.color)}>{g.label}</span>
-                <span className="text-xs tabular-nums text-muted-foreground">{g.when}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-
-  const quiz = (
-    <div className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-[18px] p-6">
-      <div className="rounded-xl bg-primary/[0.08] px-3.5 py-3 text-[13px] font-medium text-primary-strong">
-        Last quiz: 80% on Algebra. Sapphy suggests factorising next.
-      </div>
-      <div className="space-y-2">
-        <span className="text-sm font-medium">Topics</span>
-        <div className="flex flex-wrap gap-1.5">
-          {topics.map((t) => {
-            const on = quizTopics.includes(t)
-            return (
-              <label key={t} className={cn("flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border bg-card px-3 py-2 text-sm", on && "border-primary bg-primary/5")}>
-                <input
-                  type="checkbox"
-                  className="size-4 accent-primary"
-                  checked={on}
-                  onChange={() => setQuizTopics((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]))}
-                />
-                {t}
-              </label>
-            )
-          })}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <span className="text-sm font-medium">Difficulty</span>
-        <div className="flex w-fit gap-0.5 rounded-xl bg-muted p-[3px]">
-          {["Easy", "Medium", "Hard"].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDifficulty(d)}
-              className={cn("min-h-11 rounded-lg px-4 text-sm font-medium text-muted-foreground", difficulty === d && "bg-card text-foreground shadow-xs")}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <Button asChild className="h-11 rounded-xl px-6 font-semibold shadow-none">
-          <Link href={`/workspace/${subjectId}/quiz`}>Generate 5 questions</Link>
-        </Button>
-        <span className="text-xs text-muted-foreground">About 5 minutes</span>
-      </div>
-    </div>
-  )
-
-  const reels = (
-    <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-wrap gap-5 p-6">
-      <div className="relative flex aspect-[9/16] max-h-[540px] flex-[0_1_300px] items-center justify-center rounded-3xl text-white" style={{ background: "linear-gradient(160deg, #12306F, #08142E)" }}>
-        <span className="inline-flex size-16 items-center justify-center rounded-full bg-white/90 text-[#08142E]">
-          <Play className="size-7" aria-hidden="true" />
-        </span>
-        <div className="absolute inset-x-0 bottom-0 rounded-b-3xl p-4" style={{ background: "linear-gradient(to top, rgb(0 0 0 / 0.8), transparent)" }}>
-          <Badge>Algebra</Badge>
-          <p className="mt-1.5 font-bold">The discriminant in 60 seconds</p>
-        </div>
-      </div>
-      <div className="flex flex-[1_1_260px] flex-col gap-2">
-        <h3 className="font-semibold">Up next</h3>
-        {SAMPLE_REELS.map((r) => (
-          <div key={r.title} className="rounded-2xl border bg-card p-4 shadow-sm">
-            <p className="font-medium">{r.title}</p>
-            <p className="text-xs text-muted-foreground">{r.meta}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-
-  const assign = (
-    <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col gap-3.5 p-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-xl font-bold">Quadratics practice</h3>
-        <Badge variant="secondary">~25 min</Badge>
-        <Badge className="border-status-warning/40 bg-status-warning-subtle text-status-warning" variant="outline">In progress · 2 of 4</Badge>
-      </div>
-      {[
-        ["3. State the minimum value of 2x² + 8x + 3.", "2 marks"],
-        ["4. A rectangle is 3 cm longer than it is wide and has area 40 cm². Find the width.", "4 marks"],
-      ].map(([q, m]) => (
-        <div key={q} className="rounded-2xl border bg-card p-4 shadow-sm">
-          <p className="font-semibold">{q}</p>
-          <p className="text-xs text-muted-foreground">{m}</p>
-        </div>
-      ))}
-      <div className="flex gap-2.5">
-        <Button asChild className="min-h-11 rounded-xl shadow-none">
-          <Link href={`/workspace/${subjectId}/assignment`}>Continue assignment</Link>
-        </Button>
-        <Button asChild variant="outline" className="min-h-11 rounded-xl shadow-none">
-          <Link href={`/workspace/${subjectId}/assignment`}>New assignment</Link>
-        </Button>
-      </div>
-    </div>
-  )
-
-  const resources = (
-    <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col gap-3 p-6">
-      <div className="rounded-xl bg-primary/[0.08] px-3.5 py-3 text-[13px] font-medium text-primary-strong">
-        Next: January 2024, Paper 2. It has two vectors questions, your biggest mark-loser.
-      </div>
-      {SAMPLE_PAPERS.map((p) => (
-        <div key={p.name} className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm">
-          <div className="min-w-[200px] flex-1">
-            <p className="font-semibold">{p.name}</p>
-            <p className="text-xs text-muted-foreground">{p.desc}</p>
-          </div>
-          <Badge variant="outline" className={p.cls}>{p.status}</Badge>
-          <Button variant="outline" size="sm" className="min-h-11 shadow-none" disabled>
-            Open
-          </Button>
-          <Button size="sm" className="min-h-11 shadow-none" asChild>
-            <Link href={`/workspace/${subjectId}/quiz`}>Practise</Link>
-          </Button>
-        </div>
-      ))}
-    </div>
-  )
-
   const syllabus = (
     <div className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-3.5 p-6">
       <p className="text-muted-foreground">
@@ -720,11 +504,6 @@ export function WorkspaceShell({
   const centre: Record<ViewId, React.ReactNode> = {
     overview,
     notebook: <div className="flex min-h-0 flex-1 flex-wrap bg-card">{notebook}</div>,
-    flashcards,
-    quiz,
-    reels,
-    assign,
-    resources,
     syllabus,
   }
 
@@ -768,14 +547,6 @@ export function WorkspaceShell({
                     <Focus className="size-4" aria-hidden="true" />
                     Focus mode
                   </Button>
-                  {fullRoute && (
-                    <Button asChild variant="outline" size="sm" className="min-h-11 shadow-none">
-                      <Link href={`/workspace/${subjectId}/${fullRoute}`}>
-                        Open full page
-                        <ExternalLink className="size-4" aria-hidden="true" />
-                      </Link>
-                    </Button>
-                  )}
                   <span className="mx-1 h-6 w-px bg-border" />
                 </>
               )}
