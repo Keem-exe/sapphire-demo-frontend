@@ -280,57 +280,50 @@ export default function ProfilePage() {
         </Card>
 
         {/* Risk Alert (if applicable) */}
-        {intelligence?.personalized_actions?.risk_alerts && 
-         intelligence.personalized_actions.risk_alerts.level && 
+        {intelligence?.personalized_actions?.risk_alerts &&
+         intelligence.personalized_actions.risk_alerts.level &&
          intelligence.personalized_actions.risk_alerts.level !== "none" && (
-          <Card className="rounded-2xl lg:col-span-3 border-destructive/50 bg-status-danger-subtle">
-            <CardHeader>
-              <CardTitle className="text-destructive flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Learning Alert
-              </CardTitle>
-              <CardDescription>
-                <Badge variant={getRiskBadgeColor(intelligence.personalized_actions.risk_alerts.level)}>
+          <div
+            role="alert"
+            className="flex flex-wrap items-start gap-2.5 rounded-xl border border-status-warning/40 bg-status-warning-subtle p-3.5 text-sm lg:col-span-3"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
+            <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
+              <b className="font-semibold">
+                Learning alert{" "}
+                <Badge variant={getRiskBadgeColor(intelligence.personalized_actions.risk_alerts.level)} className="ml-1 align-middle">
                   {intelligence.personalized_actions.risk_alerts.level.toUpperCase()} RISK
                 </Badge>
-              </CardDescription>
-              <p className="text-sm mt-2">
-                {intelligence.personalized_actions.risk_alerts.reason}
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Suggested Actions:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  {intelligence.personalized_actions.risk_alerts.intervention_suggestions?.map((suggestion: string, i: number) => (
-                    <li key={i} className="text-sm text-muted-foreground">
-                      {suggestion}
-                    </li>
+              </b>
+              <span className="text-muted-foreground">{intelligence.personalized_actions.risk_alerts.reason}</span>
+              {intelligence.personalized_actions.risk_alerts.intervention_suggestions?.length ? (
+                <ul className="mt-1 list-inside list-disc text-muted-foreground">
+                  {intelligence.personalized_actions.risk_alerts.intervention_suggestions.map((suggestion: string, i: number) => (
+                    <li key={i}>{suggestion}</li>
                   ))}
                 </ul>
-              </div>
-            </CardContent>
-          </Card>
+              ) : null}
+            </div>
+            <Button variant="outline" size="sm" className="min-h-11 shadow-none" onClick={() => router.push(`/workspace/${user.level}-math/flashcards`)}>
+              Start drill
+            </Button>
+          </div>
         )}
-
-        {/* Learning Intelligence Dashboard */}
-        <div className="lg:col-span-3">
-          <LearningDashboard userId={user.user_id} />
-        </div>
 
         {/* Main Tabs */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="mastery" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 rounded-xl">
+            <TabsList className="grid w-full max-w-[640px] grid-cols-4 rounded-xl">
               <TabsTrigger value="mastery">Mastery</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="insights">Insights</TabsTrigger>
-              <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+              <TabsTrigger value="recommendations">Next steps</TabsTrigger>
             </TabsList>
 
             {/* Mastery Tab */}
             <TabsContent value="mastery" className="space-y-4">
-              <Card>
+              <div className="flex flex-wrap items-start gap-6">
+              <Card className="min-w-0 flex-[999_1_520px] rounded-2xl">
                 <CardHeader>
                   <CardTitle>Topic Mastery Levels</CardTitle>
                   <CardDescription>Your progress across different topics</CardDescription>
@@ -365,6 +358,33 @@ export default function ProfilePage() {
                   )}
                 </CardContent>
               </Card>
+
+              <Card className="flex-[1_1_300px] rounded-2xl">
+                <CardHeader>
+                  <CardTitle>Recent quizzes</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {getQuizHistory().length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No quizzes yet. Take your first quiz to see it here.</p>
+                  ) : (
+                    getQuizHistory().slice(0, 4).map((quiz: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
+                        <div>
+                          <p className="font-medium">{quiz.topic}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(quiz.completed_at).toLocaleDateString()}</p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn("rounded-full tabular-nums", getMasteryColor(quiz.score))}
+                        >
+                          {Math.round(quiz.score)}%
+                        </Badge>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+              </div>
 
               {/* Knowledge Gaps */}
               {analytics.knowledge_gaps && analytics.knowledge_gaps.length > 0 && (
@@ -626,6 +646,11 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
           </Tabs>
+        </div>
+
+        {/* Learning Intelligence Dashboard */}
+        <div className="lg:col-span-3">
+          <LearningDashboard userId={user.user_id} />
         </div>
       </div>
       </div>
