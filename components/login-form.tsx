@@ -45,12 +45,12 @@ export function LoginForm() {
                          error.toLowerCase().includes("backend may be down")
 
   return (
-    <Card className="w-full max-w-[440px] gap-0 rounded-3xl border-border p-8 shadow-lg">
-      <div className="mb-6 space-y-1.5">
-        <h2 className="text-[32px] font-bold leading-[38px]">Welcome back</h2>
-        <p className="text-[15px] leading-[22px] text-muted-foreground">Log in to keep your study streak going.</p>
+    <Card className="w-full max-w-[520px] gap-0 rounded-3xl border-border p-10 shadow-lg">
+      <div className="mb-8 space-y-2">
+        <h2 className="text-4xl font-bold leading-[42px]">Welcome back</h2>
+        <p className="text-base leading-6 text-muted-foreground">Log in to keep your study streak going.</p>
       </div>
-      <form onSubmit={handleSubmit} className="space-y-[18px]">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
           <Label htmlFor="email" className="text-sm font-medium">
             Email
@@ -62,7 +62,7 @@ export function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="h-11 rounded-2xl"
+            className="h-12 rounded-2xl"
           />
         </div>
         <div className="space-y-2">
@@ -76,7 +76,7 @@ export function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="h-11 rounded-2xl"
+            className="h-12 rounded-2xl"
           />
         </div>
         {error && (
@@ -105,14 +105,14 @@ export function LoginForm() {
             </div>
           </div>
         )}
-        <Button type="submit" className="h-11 w-full rounded-2xl font-semibold" disabled={isLoading}>
+        <Button type="submit" className="h-12 w-full rounded-2xl text-base font-semibold" disabled={isLoading}>
           {isLoading ? "Signing in..." : "Log in"}
         </Button>
       </form>
       <Button
         asChild
         variant="outline"
-        className="mt-5 h-11 w-full rounded-2xl border-primary font-semibold text-primary-strong shadow-none"
+        className="mt-5 h-12 w-full rounded-2xl border-primary text-base font-semibold text-primary-strong shadow-none"
       >
         <Link href="/dashboard/Signup">New here? Create an account</Link>
       </Button>
