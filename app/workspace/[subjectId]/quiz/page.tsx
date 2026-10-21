@@ -125,6 +125,10 @@ export default function QuizPage() {
           topics.length ? topics : subject.topics.slice(0, 1)
         );
 
+        if (!topicIds.length) {
+          throw new Error("No topics are available for this subject yet. Please try again later or contact support.");
+        }
+
         const response: any = await apiClient.post("/api/ai/quiz", {
           subjectId: backendSubjectId,
           topics: topicIds,
