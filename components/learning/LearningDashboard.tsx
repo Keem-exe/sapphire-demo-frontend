@@ -189,11 +189,11 @@ function MasteryBadge({ status }: { status: string }) {
   } as const
 
   const colors = {
-    not_started: 'bg-gray-500',
-    needs_review: 'bg-red-500',
-    learning: 'bg-yellow-500',
-    reviewing: 'bg-blue-500',
-    mastered: 'bg-green-500',
+    not_started: 'bg-muted-foreground',
+    needs_review: 'bg-destructive',
+    learning: 'bg-status-warning',
+    reviewing: 'bg-primary',
+    mastered: 'bg-status-success',
   }
 
   return (

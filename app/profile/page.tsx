@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { analyticsService } from "@/lib/services/analytics"
 import { intelligenceEngine } from "@/lib/services/intelligence-engine"
 import { quizHistoryService } from "@/lib/services/quiz-history-service"
@@ -111,10 +113,10 @@ export default function ProfilePage() {
   }
 
   const getMasteryColor = (level: number) => {
-    if (level >= 80) return "bg-green-500"
-    if (level >= 60) return "bg-blue-500"
-    if (level >= 40) return "bg-yellow-500"
-    return "bg-red-500"
+    if (level >= 80) return "border-status-success/30 bg-status-success-subtle text-status-success"
+    if (level >= 60) return "border-primary/30 bg-primary/10 text-primary-strong"
+    if (level >= 40) return "border-status-warning/40 bg-status-warning-subtle text-status-warning"
+    return "border-destructive/30 bg-status-danger-subtle text-destructive"
   }
 
   const getMasteryLabel = (level: number) => {
@@ -159,28 +161,33 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Learning Profile</h1>
-        <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-background">
+      <header className="hdr">
+        <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")} className="min-h-11 shadow-none">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <span className="h-6 w-px bg-border" />
+            <h1 className="text-lg font-semibold">Learning Profile</h1>
+          </div>
           {user?.accountType === "admin" && (
-            <Button variant="outline" onClick={() => router.push("/admin")}>
+            <Button variant="outline" size="sm" onClick={() => router.push("/admin")} className="min-h-11 shadow-none">
               <ShieldCheck className="w-4 h-4 mr-2" />
               Admin console
             </Button>
           )}
-          <Button variant="outline" onClick={() => router.push("/dashboard")}>
-            Back to Dashboard
-          </Button>
         </div>
-      </div>
+      </header>
+      <div className="container mx-auto p-6 pt-7 max-w-7xl">
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* User Info Card */}
-        <Card>
+        <Card className="rounded-2xl">
           <CardHeader className="text-center pb-4">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-secondary mx-auto mb-4 flex items-center justify-center">
-              <User className="w-12 h-12 text-primary-foreground" />
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-sky mx-auto mb-4 flex items-center justify-center text-3xl font-bold text-white">
+              {`${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() || <User className="w-12 h-12" />}
             </div>
             <CardTitle>{user.first_name} {user.last_name}</CardTitle>
             <CardDescription>{user.email}</CardDescription>
@@ -198,7 +205,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <p className="text-muted-foreground text-sm">Learning Style</p>
-              <Badge variant="outline" className="mt-1">{user.learning_style}</Badge>
+              <Badge className="mt-1 border-transparent bg-primary/10 text-primary-strong">{user.learning_style}</Badge>
             </div>
             {user.user_id === 999 && (
               <Badge variant="secondary" className="w-full justify-center">
@@ -209,7 +216,7 @@ export default function ProfilePage() {
         </Card>
 
         {/* Quick Stats */}
-        <Card className="lg:col-span-2">
+        <Card className="rounded-2xl lg:col-span-2">
           <CardHeader>
             <CardTitle>Quick Stats</CardTitle>
             <CardDescription>Your learning at a glance</CardDescription>
@@ -229,15 +236,15 @@ export default function ProfilePage() {
                 <div className="text-xs text-muted-foreground">Flashcards</div>
               </div>
               <div className="text-center p-3 bg-primary/5 rounded-lg">
-                <Flame className="w-6 h-6 text-orange-500 mx-auto mb-1" />
-                <div className="text-2xl font-bold text-orange-500">
+                <Flame className="w-6 h-6 text-streak mx-auto mb-1" />
+                <div className="text-2xl font-bold text-streak">
                   {analytics.current_streak}
                 </div>
                 <div className="text-xs text-muted-foreground">Day Streak</div>
               </div>
               <div className="text-center p-3 bg-primary/5 rounded-lg">
-                <Clock className="w-6 h-6 text-blue-500 mx-auto mb-1" />
-                <div className="text-2xl font-bold text-blue-500">
+                <Clock className="w-6 h-6 text-primary mx-auto mb-1" />
+                <div className="text-2xl font-bold text-primary">
                   {Math.round(analytics.total_study_time)}m
                 </div>
                 <div className="text-xs text-muted-foreground">Study Time</div>
@@ -276,7 +283,7 @@ export default function ProfilePage() {
         {intelligence?.personalized_actions?.risk_alerts && 
          intelligence.personalized_actions.risk_alerts.level && 
          intelligence.personalized_actions.risk_alerts.level !== "none" && (
-          <Card className="lg:col-span-3 border-destructive/50">
+          <Card className="rounded-2xl lg:col-span-3 border-destructive/50 bg-status-danger-subtle">
             <CardHeader>
               <CardTitle className="text-destructive flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
@@ -314,7 +321,7 @@ export default function ProfilePage() {
         {/* Main Tabs */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="mastery" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-4 rounded-xl">
               <TabsTrigger value="mastery">Mastery</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="insights">Insights</TabsTrigger>
@@ -342,7 +349,7 @@ export default function ProfilePage() {
                               <span className="font-medium">{topic.topic}</span>
                               <p className="text-xs text-muted-foreground">{topic.subject_id}</p>
                             </div>
-                            <Badge variant="outline" className={getMasteryColor(topic.confidence_score)}>
+                            <Badge variant="outline" className={cn("rounded-full", getMasteryColor(topic.confidence_score))}>
                               {getMasteryLabel(topic.confidence_score)}
                             </Badge>
                           </div>
@@ -485,7 +492,7 @@ export default function ProfilePage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-start gap-3">
-                      <Lightbulb className="w-5 h-5 text-yellow-500 mt-0.5" />
+                      <Lightbulb className="w-5 h-5 text-accent-foreground mt-0.5" />
                       <div>
                         <p className="font-medium text-sm">
                           {intelligence.personalized_actions.pacing_guidance.should_advance
@@ -620,6 +627,7 @@ export default function ProfilePage() {
             </TabsContent>
           </Tabs>
         </div>
+      </div>
       </div>
     </div>
   )
