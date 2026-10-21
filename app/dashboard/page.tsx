@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link"
+import { cn } from "@/lib/utils"
 import type React from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { SubjectCard } from "@/components/subject-card"
@@ -10,21 +12,28 @@ import { CapeSubjectCard } from "@/components/cape-subject-card"
 import { AddSubjectDialog } from "@/components/add-subject-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Plus,
   Search,
   LogOut,
-  ArrowLeft,
+  ChevronDown,
+  ChevronRight,
   Brain,
   User,
   Flame,
+  Play,
   Target,
   Video,
   Layers,
-  CheckCircle2,
   MessageSquarePlus,
   ShieldCheck,
 } from "lucide-react"
@@ -286,6 +295,28 @@ export default function DashboardPage() {
     router.push("/select-level")
   }
 
+  const greeting = (() => {
+    const h = new Date().getHours()
+    return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"
+  })()
+  const levelLabel = selectedLevel === "csec" ? "CSEC" : "CAPE"
+  const initials = `${user?.first_name?.[0] ?? ""}${user?.last_name?.[0] ?? ""}`.toUpperCase() || "ME"
+  // SAMPLE: the week strip and exam countdown have no backend data yet.
+  const weekDays = [
+    { day: "Mon", date: "12", state: "past", has: true },
+    { day: "Tue", date: "13", state: "past", has: true },
+    { day: "Wed", date: "14", state: "today", has: true },
+    { day: "Thu", date: "15", state: "future", has: true },
+    { day: "Fri", date: "16", state: "future", has: true },
+    { day: "Sat", date: "17", state: "future", has: true },
+    { day: "Sun", date: "18", state: "future", has: false },
+  ]
+  const todayRows = quickActions.map((action) => ({
+    ...action,
+    subjectName: focusSubject?.name ?? "",
+    stripe: action.taskId === "flash" ? "var(--tool-flashcards)" : "var(--tool-quiz)",
+  }))
+
   if (!selectedLevel) {
     return null
   }
@@ -294,251 +325,209 @@ export default function DashboardPage() {
     <div className="wash min-h-screen">
       {/* Header */}
       <header className="hdr">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1>
-                <Image src="/sapphire-logo.png" alt="Sapphire OS" width={119} height={40} priority className="h-10 w-auto" />
-              </h1>
-              <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium">
-                {selectedLevel === "csec" ? "CSEC" : "CAPE"} Study Companion
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              {user?.accountType === "admin" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push("/admin")}
-                  className="text-primary border-primary/20 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
-                >
-                  <ShieldCheck className="w-4 h-4 mr-2" />
-                  Admin
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFeedbackOpen(true)}
-                className="text-primary border-primary/20 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
-              >
-                <MessageSquarePlus className="w-4 h-4 mr-2" />
-                Feedback
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push("/profile")}
-                className="text-primary border-primary/20 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
-              >
-                <User className="w-4 h-4 mr-2" />
-                Profile
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push("/engine-demo")}
-                className="text-primary border-primary/20 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
-              >
-                <Brain className="w-4 h-4 mr-2" />
-                Engine Demo
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleChangeLevel}
-                className="text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Change Level
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard" aria-label="Sapphire OS home" className="inline-flex">
+              <Image src="/sapphire-logo.png" alt="Sapphire OS" width={119} height={40} priority className="h-10 w-auto" />
+            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleChangeLevel}
+              aria-label={`Switch level, currently ${levelLabel}`}
+              className="min-h-11 gap-1 shadow-none"
+            >
+              {levelLabel}
+              <ChevronDown className="size-4" aria-hidden="true" />
+            </Button>
           </div>
+          <nav className="flex items-center gap-2.5" aria-label="Account">
+            <Badge variant="secondary" className="h-8 gap-1.5 px-3 text-[13px]" title="Study streak">
+              <Flame className="size-4 text-streak" aria-hidden="true" />
+              <span className="tabular-nums">{dailyStreak}-day streak</span>
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" aria-label="Account menu" className="min-h-11 gap-2 rounded-full pl-1.5 shadow-none">
+                  <span className="inline-flex size-7 items-center justify-center rounded-full bg-secondary text-xs font-semibold">
+                    {initials}
+                  </span>
+                  <ChevronDown className="size-4" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-48">
+                <DropdownMenuItem onClick={() => router.push("/profile")}>
+                  <User className="size-4" /> Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFeedbackOpen(true)}>
+                  <MessageSquarePlus className="size-4" /> Feedback
+                </DropdownMenuItem>
+                {user?.accountType === "admin" && (
+                  <DropdownMenuItem onClick={() => router.push("/admin")}>
+                    <ShieldCheck className="size-4" /> Admin console
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => router.push("/engine-demo")}>
+                  <Brain className="size-4" /> Engine Demo
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut className="size-4" /> Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </nav>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="mx-auto flex max-w-[1200px] flex-col gap-8 px-6 pb-16 pt-7">
         {isBooting ? (
-          <div className="space-y-6 mb-8 animate-pulse">
+          <div className="space-y-6 animate-pulse">
             <div className="h-40 rounded-3xl bg-muted/60" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="h-24 rounded-2xl bg-muted/60" />
-              <div className="h-24 rounded-2xl bg-muted/60" />
-              <div className="h-24 rounded-2xl bg-muted/60" />
-            </div>
           </div>
         ) : null}
 
-        {/* Mission Hero */}
-        <div className="hero-blue mb-8 rounded-3xl p-6 md:p-9">
+        {/* 1. One next action */}
+        <section className="hero-blue flex flex-wrap items-center gap-8 rounded-3xl p-9">
           <div className="doodles" style={{ "--dx": "-120px", "--dy": "-80px" } as React.CSSProperties} aria-hidden="true" />
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-sky">Today&apos;s Mission</p>
-              <h2 className="text-3xl font-bold mt-2">
-                {user?.first_name ? `${user.first_name}, stay in momentum.` : "Stay in momentum."}
-              </h2>
-              <p className="text-white/90 text-base mt-2 max-w-xl">
-                Build daily consistency with fast wins first. Dashboard now leads with action so you can study before distractions.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-4">
-                <Badge variant="secondary" className="px-3 py-1 text-xs">
-                  <Flame className="w-3 h-3 mr-1" />
-                  Momentum Mode
-                </Badge>
-                <Badge variant="outline" className="border-white/40 px-3 py-1 text-xs text-white">
-                  {selectedLevel === "csec" ? "CSEC Focus" : "CAPE Focus"}
-                </Badge>
-                <Badge variant="outline" className="border-white/40 px-3 py-1 text-xs text-white">
-                  {nextMilestone > 0 ? `${Math.ceil(nextMilestone / 5)} sessions to 70% mastery` : "At mastery momentum"}
-                </Badge>
-              </div>
-
+          <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-2.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky">
+              {greeting}
+              {user?.first_name ? `, ${user.first_name}` : ""}
+            </p>
+            <h1 className="text-[30px] font-bold leading-[38px]">
+              {primaryAction ? `Next up: ${primaryAction.label.replace(/^Start /, "")}` : "Add a subject to get started"}
+            </h1>
+            <p className="text-[15px] leading-6 text-white/90">
+              {focusSubject
+                ? `${focusSubject.name} · about 8 minutes. ${nextMilestone > 0 ? `${Math.ceil(nextMilestone / 5)} sessions to 70% mastery.` : "You're at mastery momentum."}`
+                : "Your subjects will appear here."}
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-4">
               {primaryAction ? (
-                <div className="mt-5 flex flex-wrap items-center gap-3">
-                  <Button
-                    onClick={handlePrimaryStart}
-                    className="min-h-11 rounded-xl px-6 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold shadow-none focus-visible:ring-2 focus-visible:ring-white"
-                  >
-                    <Target className="w-4 h-4 mr-2" />
-                    Start Now: {primaryAction.label}
-                  </Button>
-                  {secondaryActions.map((action) => {
-                    const Icon = action.icon
-                    return (
-                      <Button
-                        key={action.label}
-                        variant="outline"
-                        onClick={() => handleSecondaryAction(action.path, action.taskId)}
-                        className="min-h-11 rounded-xl border-white/40 bg-transparent text-white shadow-none hover:bg-white/15 hover:text-white focus-visible:ring-2 focus-visible:ring-white"
-                      >
-                        <Icon className="w-4 h-4 mr-2" />
-                        {action.label}
-                      </Button>
-                    )
-                  })}
-                </div>
+                <Button
+                  onClick={handlePrimaryStart}
+                  className="h-11 rounded-2xl bg-accent px-6 font-semibold text-accent-foreground shadow-none hover:bg-accent/90 focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  <Play className="size-4" aria-hidden="true" />
+                  Start
+                </Button>
+              ) : null}
+              {focusSubject ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push(`/workspace/${focusSubject.id}`)}
+                  className="min-h-11 text-white shadow-none hover:bg-white/15 hover:text-white"
+                >
+                  Ask Sapphy something else
+                </Button>
               ) : null}
             </div>
-
-            <Card className="w-full md:w-[280px] border-transparent shadow-none">
-              <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Average Progress</span>
-                  <span className="font-semibold text-primary">{averageProgress}%</span>
-                </div>
-                <Progress value={averageProgress} className="h-2" />
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Subjects Active</span>
-                  <span className="font-semibold">{activeSubjects.length}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Topics in Rotation</span>
-                  <span className="font-semibold">{totalTopics}</span>
-                </div>
-                <div className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary font-medium">
-                  Next milestone: {nextMilestone > 0 ? `Finish this topic today and move ${nextMilestone}% closer.` : "Maintain mastery with one review set."}
-                </div>
-              </CardContent>
-            </Card>
           </div>
-        </div>
+          <div className="flex w-[190px] flex-none flex-col gap-0.5 border-l border-white/30 pl-7">
+            <span className="text-xs font-semibold uppercase tracking-wide text-sky">{levelLabel} exams in</span>
+            <span className="text-[44px] font-bold leading-[50px] tabular-nums">208</span>
+            <span className="text-white/90">days</span>
+          </div>
+        </section>
 
-        {/* Quick Win Streak */}
-        <Card className="mb-8 rounded-2xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Flame className="w-5 h-5 text-streak" />
-              Quick-Win Streak
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between text-sm">
-              <p className="text-foreground/90">Daily streak: <span className="font-semibold text-streak">{dailyStreak} days</span></p>
-              <p className="text-muted-foreground">{tasksDone}/3 tasks today</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              {todayTasks.map((task) => (
-                <div key={task.id} className="rounded-lg border px-3 py-2 text-sm flex items-center gap-2 bg-background/60">
-                  <CheckCircle2 className={`w-4 h-4 ${task.done ? "text-emerald-600" : "text-muted-foreground"}`} />
-                  <span className={task.done ? "text-foreground font-medium" : "text-muted-foreground"}>{task.label}</span>
-                </div>
+        {/* 2. This week */}
+        <Card className="gap-[18px] rounded-2xl p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">This week</h2>
+            <span className="tabular-nums text-muted-foreground">
+              {tasksDone} of {todayTasks.length} sessions done today
+            </span>
+          </div>
+          <div className="grid grid-cols-7 gap-2.5">
+            {weekDays.map((d) => (
+              <div
+                key={d.day}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3",
+                  d.state === "today" ? "border-2 border-primary bg-primary/[0.08]" : d.state === "past" ? "bg-muted/50" : "bg-card",
+                )}
+              >
+                <span className="text-xs text-muted-foreground">{d.day}</span>
+                <span className="text-lg font-semibold tabular-nums">{d.date}</span>
+                <span
+                  className={cn("size-2 rounded-full", !d.has ? "bg-transparent" : d.state === "past" ? "bg-status-success" : "bg-primary")}
+                />
+              </div>
+            ))}
+          </div>
+          {todayRows.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Today</p>
+              {todayRows.map((row) => (
+                <button
+                  key={row.label}
+                  onClick={() => handleSecondaryAction(row.path, row.taskId)}
+                  className="flex min-h-11 items-center gap-3 rounded-xl border bg-card px-4 py-3 text-left"
+                  style={{ borderLeft: `4px solid ${row.stripe}` }}
+                >
+                  <span className="flex-1 font-medium">{row.label}</span>
+                  <span className="text-xs text-muted-foreground">{row.subjectName}</span>
+                  <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+                </button>
               ))}
             </div>
-            {celebration ? (
-              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-sm text-emerald-700 font-medium">
-                {celebration}
-              </div>
-            ) : null}
-          </CardContent>
+          )}
+          {celebration ? (
+            <div className="rounded-lg border border-status-success/25 bg-status-success-subtle px-3 py-2 text-sm font-medium text-status-success">
+              {celebration}
+            </div>
+          ) : null}
         </Card>
 
-        {/* Search and Add */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search subjects..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 rounded-2xl bg-card focus-visible:ring-2 focus-visible:ring-primary/70"
-            />
-          </div>
-          <Button
-            onClick={() => setShowAddDialog(true)}
-            className="h-12 px-6 rounded-2xl font-medium focus-visible:ring-2 focus-visible:ring-primary/70"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Subject
-          </Button>
-        </div>
-
-        {selectedLevel === "csec" && filteredCsecSubjects.length > 0 && (
-          <div className="mb-12">
-            <div className="flex items-center gap-3 mb-6">
-              <h3 className="text-2xl font-bold text-foreground">Subject Hub</h3>
-              <div className="h-px flex-1 bg-border" />
+        {/* 3. Subjects */}
+        <section className="flex flex-col gap-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-2xl font-bold leading-8">Your subjects</h2>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  type="text"
+                  aria-label="Search subjects"
+                  placeholder="Search subjects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-11 w-56 rounded-2xl bg-card pl-9 focus-visible:ring-2 focus-visible:ring-primary/70"
+                />
+              </div>
+              <Button variant="outline" onClick={() => setShowAddDialog(true)} className="h-11 rounded-2xl shadow-none">
+                <Plus className="size-4" aria-hidden="true" />
+                Add subject
+              </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          </div>
+
+          {selectedLevel === "csec" && filteredCsecSubjects.length > 0 && (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-6">
               {filteredCsecSubjects.map((subject: any) => (
                 <SubjectCard key={subject.id} subject={subject} />
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {selectedLevel === "cape" && filteredCapeSubjects.length > 0 && (
-          <div>
-            <div className="flex items-center gap-3 mb-6">
-              <h3 className="text-2xl font-bold text-foreground">Subject Hub</h3>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {selectedLevel === "cape" && filteredCapeSubjects.length > 0 && (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-6">
               {filteredCapeSubjects.map((subject: any) => (
                 <CapeSubjectCard key={subject.id} subject={subject} />
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {filteredCsecSubjects.length === 0 && filteredCapeSubjects.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">
-              {searchQuery ? "No subjects found matching your search." : "No subjects yet. Add your first subject!"}
-            </p>
-          </div>
-        )}
+          {filteredCsecSubjects.length === 0 && filteredCapeSubjects.length === 0 && (
+            <div className="py-12 text-center">
+              <p className="text-lg text-muted-foreground">
+                {searchQuery ? "No subjects found matching your search." : "No subjects yet. Add your first subject!"}
+              </p>
+            </div>
+          )}
+        </section>
       </main>
 
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />

@@ -1,9 +1,7 @@
 "use client"
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { BookOpen, Clock } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { subjectStripe } from "@/lib/brand"
 
@@ -32,60 +30,67 @@ export function normalizeSubjectId(id: string): string {
   return map[id] || id;
 }
 
+// SAMPLE: the backend does not return a "next up" suggestion per subject yet.
+const SAMPLE_NEXT_UP: Record<string, string> = {
+  "csec-math": "Quadratics flashcards",
+  "csec-chem": "Organic chemistry quiz",
+  "csec-eng": "Persuasive essay",
+}
+
 interface SubjectCardProps {
   subject: Subject
 }
 
 export function SubjectCard({ subject }: SubjectCardProps) {
   const router = useRouter()
+  const stripe = subjectStripe(subject.id)
+  const nextUp = SAMPLE_NEXT_UP[normalizeSubjectId(subject.id)] ?? "Pick up where you left off"
 
   const handleOpenSubject = () => {
     router.push(`/workspace/${normalizeSubjectId(subject.id)}`)
   }
 
   return (
-    <Card className="group gap-0 overflow-hidden rounded-2xl py-0 transition-colors hover:border-primary/50 cursor-pointer">
-      <div className={`h-1.5 ${subjectStripe(subject.id)}`} />
-      <CardContent className="p-6 pt-6">
-        {/* Icon and Name */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="text-4xl">{subject.icon}</div>
-            <div>
-              <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors">
-                {subject.name}
-              </h3>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <BookOpen className="w-3 h-3" />
-                <span>{subject.topics} topics</span>
-              </div>
+    <Card
+      role="link"
+      tabIndex={0}
+      onClick={handleOpenSubject}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          handleOpenSubject()
+        }
+      }}
+      className="group cursor-pointer gap-0 overflow-hidden rounded-2xl border-2 py-0 transition-all hover:border-primary/50 hover:shadow-lg focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
+      <div className={`h-1.5 ${stripe}`} />
+      <div className="flex flex-col gap-4 p-6">
+        <div className="flex items-center gap-3.5">
+          <span className={`inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-xl text-white ${stripe}`} aria-hidden="true">
+            {subject.icon}
+          </span>
+          <h3 className="flex-1 text-lg font-semibold">{subject.name}</h3>
+          <ChevronRight className="size-5 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden="true" />
+        </div>
+        <div className="flex items-center gap-[18px]">
+          <div
+            className="flex size-[72px] shrink-0 items-center justify-center rounded-full"
+            style={{
+              background: `conic-gradient(var(--primary) ${Math.round(subject.progress * 3.6)}deg, color-mix(in oklab, var(--primary) 18%, transparent) 0)`,
+            }}
+            role="img"
+            aria-label={`${subject.progress} percent mastery`}
+          >
+            <div className="flex size-14 items-center justify-center rounded-full bg-card">
+              <span className="text-[17px] font-bold tabular-nums">{subject.progress}%</span>
             </div>
           </div>
-        </div>
-
-        {/* Progress */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-foreground">Progress</span>
-            <span className="text-sm font-semibold text-primary">{subject.progress}%</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">Next up</p>
+            <p className="font-medium leading-[22px]">{nextUp}</p>
           </div>
-          <Progress value={subject.progress} className="h-2" />
         </div>
-
-        {/* Last Studied */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-          <Clock className="w-4 h-4" />
-          <span>Last studied {subject.lastStudied}</span>
-        </div>
-
-        {/* Action Button */}
-        <Button
-          onClick={handleOpenSubject}
-          className="w-full rounded-xl font-medium"
-        >
-          Continue Learning
-        </Button>
-      </CardContent>
+      </div>
     </Card>
   )
 }
