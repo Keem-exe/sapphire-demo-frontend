@@ -17,7 +17,7 @@ import { apiClient } from "@/lib/api-client";
 import { AiRating } from "@/components/feedback/ai-rating";
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Layers, Trophy } from "lucide-react";
+import { ArrowLeft, Layers, Play, Trophy } from "lucide-react";
 
 // Map legacy/alias route IDs to canonical SUBJECTS keys
 const normalizeSubjectId = (id: string): SubjectId => {
@@ -40,6 +40,15 @@ type Flashcard = {
   subjectId: string;
   difficulty: "easy" | "medium" | "hard";
 };
+
+// The four ratings map onto the existing mastered / review-later data:
+// Good and Easy count as mastered, Again and Hard do not. Intervals are illustrative.
+const GRADES = [
+  { id: "again", label: "Again", when: "< 1 min", color: "text-destructive", border: "border-destructive/35" },
+  { id: "hard", label: "Hard", when: "6 min", color: "text-status-warning", border: "border-status-warning/45" },
+  { id: "good", label: "Good", when: "1 day", color: "text-status-success", border: "border-status-success/45" },
+  { id: "easy", label: "Easy", when: "4 days", color: "text-primary", border: "border-primary/40" },
+] as const;
 
 export default function FlashcardsPage() {
   const { user } = useAuth();
@@ -68,6 +77,8 @@ export default function FlashcardsPage() {
   const [reviewedCards, setReviewedCards] = useState<Set<string>>(new Set());
   const [backendSetId, setBackendSetId] = useState<number | null>(null);
   const [aiEventId, setAiEventId] = useState<number | string | null>(null);
+  const [queue, setQueue] = useState<string[]>([]);
+  const [revealed, setRevealed] = useState(false);
   const [practiceResult, setPracticeResult] = useState<{
     cardsReviewed: number;
     cardsMastered: number;
@@ -76,6 +87,12 @@ export default function FlashcardsPage() {
     passed: boolean;
     durationSeconds: number;
   } | null>(null);
+
+  // Start a fresh queue whenever a new set of cards arrives
+  useEffect(() => {
+    setQueue(cards.map((c) => c.id));
+    setRevealed(false);
+  }, [cards]);
 
   if (!subject) return <div className="p-6">Unknown subject.</div>;
 
@@ -155,6 +172,15 @@ export default function FlashcardsPage() {
       </div>
     );
   }
+
+  const currentCard = cards.find((c) => c.id === queue[0]) ?? null;
+
+  const gradeCurrent = (grade: (typeof GRADES)[number]["id"]) => {
+    if (!currentCard) return;
+    handleCardReview(currentCard.id, grade === "good" || grade === "easy");
+    setQueue((q) => (grade === "again" ? [...q.slice(1), q[0]] : q.slice(1)));
+    setRevealed(false);
+  };
 
   const toggle = (t: string) =>
     setTopics((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
@@ -376,7 +402,7 @@ const handleEndSession = async () => {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium">Session progress</span>
                   <span className="text-xs tabular-nums text-muted-foreground">
-                    {reviewedCards.size} of {cards.length} reviewed · {masteredCards.size} mastered
+                    {reviewedCards.size} of {cards.length} reviewed · {masteredCards.size} remembered
                   </span>
                 </div>
                 <Progress value={(reviewedCards.size / cards.length) * 100} className="h-2" />
@@ -391,52 +417,67 @@ const handleEndSession = async () => {
               </Button>
             </section>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {cards.map((c) => {
-                const isReviewed = reviewedCards.has(c.id);
-                const isMastered = masteredCards.has(c.id);
-
-                return (
-                  <Card
-                    key={c.id}
+            <section className="flex flex-col items-center gap-4">
+              {currentCard ? (
+                <>
+                  <p className="text-xs tabular-nums text-muted-foreground">
+                    Card {Math.min(cards.length, reviewedCards.size + 1)} of {cards.length} · {currentCard.topic}
+                  </p>
+                  <button
+                    onClick={() => setRevealed(true)}
+                    aria-label={revealed ? "Flashcard, answer shown" : "Flashcard. Click to reveal the answer"}
                     className={cn(
-                      "gap-0 rounded-2xl p-5",
-                      isReviewed && (isMastered ? "border-status-success border-2" : "border-status-warning border-2"),
+                      "flex min-h-[300px] w-full max-w-[640px] flex-col items-center justify-center gap-4 rounded-2xl border-2 bg-card p-10 text-center shadow-lg",
+                      revealed ? "cursor-default" : "cursor-pointer",
                     )}
                   >
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Question</p>
-                      <p className="text-lg font-semibold leading-7">{c.front}</p>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-status-success">Answer</p>
-                      <p className="text-muted-foreground">{c.back}</p>
-                      <p className="pt-1 text-xs text-muted-foreground">
-                        {c.topic} · {c.difficulty}
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Question</span>
+                    <span className="text-2xl font-semibold leading-8">{currentCard.front}</span>
+                    {!revealed && (
+                      <span className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Play className="size-3.5" aria-hidden="true" />
+                        Think of your answer, then click the card to reveal it
+                      </span>
+                    )}
+                    {revealed && (
+                      <>
+                        <span className="h-px w-16 bg-border" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-status-success">Answer</span>
+                        <span className="max-w-[460px] text-base leading-6">{currentCard.back}</span>
+                      </>
+                    )}
+                  </button>
+                  {!revealed && (
+                    <Button className="h-11 min-w-[240px] rounded-2xl font-semibold shadow-none" onClick={() => setRevealed(true)}>
+                      Show answer
+                    </Button>
+                  )}
+                  {revealed && (
+                    <div className="flex flex-col items-center gap-2">
+                      <p className="text-xs text-muted-foreground">How well did you remember it?</p>
+                      <div className="flex flex-wrap justify-center gap-2.5">
+                        {GRADES.map((g) => (
+                          <Button
+                            key={g.id}
+                            variant="outline"
+                            onClick={() => gradeCurrent(g.id)}
+                            className={cn("h-auto min-w-[116px] flex-col gap-0.5 rounded-2xl px-4 py-2.5 shadow-none", g.border)}
+                          >
+                            <span className={cn("font-semibold", g.color)}>{g.label}</span>
+                            <span className="text-xs tabular-nums text-muted-foreground">{g.when}</span>
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        The time shows when you'll see this card again. Cards marked Again come back this session.
                       </p>
                     </div>
-                    <div className="mt-4 flex gap-2">
-                      <Button
-                        size="sm"
-                        variant={isMastered ? "default" : "outline"}
-                        onClick={() => handleCardReview(c.id, true)}
-                        disabled={isReviewed}
-                        className="min-h-11 flex-1 rounded-xl shadow-none"
-                      >
-                        ✓ Mastered
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={isReviewed && !isMastered ? "secondary" : "outline"}
-                        onClick={() => handleCardReview(c.id, false)}
-                        disabled={isReviewed}
-                        className="min-h-11 flex-1 rounded-xl shadow-none"
-                      >
-                        ↻ Review Later
-                      </Button>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
+                  )}
+                </>
+              ) : (
+                <p className="py-10 text-lg font-medium">All cards reviewed. End the session to save your progress.</p>
+              )}
+            </section>
           </>
         )}
       </main>
