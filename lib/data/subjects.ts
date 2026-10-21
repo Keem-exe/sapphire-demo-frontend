@@ -31,7 +31,7 @@ export const SUBJECTS: Record<SubjectId, SubjectDefinition> = {
       "Number Theory",
       "Algebra",
       "Linear Equations",
-      "Quadratics",
+      "Quadratic Equations",
       "Geometry",
       "Trigonometry",
       "Statistics",
