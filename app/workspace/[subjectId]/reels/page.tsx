@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
@@ -11,7 +12,6 @@ import {
   Video,
   ArrowLeft,
   Play,
-  Pause,
   Volume2,
   VolumeX,
   Bookmark,
@@ -52,15 +52,6 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-const SUBJECT_ICONS: Record<SubjectId, string> = {
-  "csec-math": "📐",
-  "csec-chem": "🧪",
-  "csec-eng": "📚",
-  "cape-puremath": "📈",
-  "cape-phys": "⚡",
-  "cape-bio": "🧬",
-}
-
 const SUBJECT_ALIASES: Record<string, SubjectId> = {
   "1": "csec-math",
   "2": "csec-eng",
@@ -88,32 +79,6 @@ function normalizeSubjectId(id: string): SubjectId {
   return (SUBJECT_ALIASES[normalized] || normalized || "csec-math") as SubjectId
 }
 
-function formatPublishedDate(value: string): string {
-  if (!value) return "Recent upload"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "Recent upload"
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-function buildReelDetails(reel: ReelItem): string[] {
-  const details = [
-    `Topic focus: ${reel.topic || "General"}`,
-    `Channel: ${reel.channelTitle}`,
-    `Published: ${formatPublishedDate(reel.publishedAt)}`,
-    `Views: ${formatCount(reel.youtubeViewCount)}`,
-  ]
-
-  if (reel.description) {
-    details.unshift(reel.description)
-  }
-
-  return details
-}
-
 function withPlayerParams(baseUrl: string, options: { muted: boolean; videoId: string }) {
   const separator = baseUrl.includes("?") ? "&" : "?"
   const common = `autoplay=1&mute=${options.muted ? 1 : 0}&controls=1&rel=0&modestbranding=1&playsinline=1`
@@ -132,7 +97,6 @@ export default function ReelsPage() {
   const rawSubjectId = params.subjectId as string
   const subjectId = useMemo(() => normalizeSubjectId(rawSubjectId), [rawSubjectId])
   const subject = SUBJECTS[subjectId]
-  const subjectIcon = SUBJECT_ICONS[subjectId] || "📚"
 
   const [selectedTopic, setSelectedTopic] = useState(ALL_TOPICS)
   const [reels, setReels] = useState<ReelItem[]>([])
@@ -272,7 +236,6 @@ export default function ReelsPage() {
   }
 
   const currentReel = reels[currentReelIndex] || null
-  const currentReelDetails = currentReel ? buildReelDetails(currentReel) : []
   const isLiked = currentReel ? likedReels.has(currentReel.id) : false
   const isSaved = currentReel ? savedReels.has(currentReel.id) : false
 
@@ -396,331 +359,234 @@ export default function ReelsPage() {
 
   const topicButtons = [ALL_TOPICS, ...availableTopics]
 
+  const roundBtn =
+    "size-12 rounded-full bg-black/50 text-white shadow-none backdrop-blur-sm hover:bg-black/70 hover:text-white"
+
   return (
     <div className="min-h-screen bg-background">
       <header className="hdr">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={handleBack} className="min-h-11 rounded-lg shadow-none">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
-                <span className="g-reels inline-flex size-8 items-center justify-center rounded-lg text-white" aria-hidden="true">
-                  <Video className="size-4" />
-                </span>
-                <div>
-                  <h1 className="text-lg font-semibold text-foreground">{subject.name} Reels</h1>
-                  <p className="text-xs text-muted-foreground">Quick study videos, curated for your subject</p>
-                </div>
-              </div>
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center px-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={handleBack} className="min-h-11 rounded-lg shadow-none">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {subject.name}
+            </Button>
+            <span className="h-6 w-px bg-border" />
+            <span className="g-reels inline-flex size-8 items-center justify-center rounded-lg text-white" aria-hidden="true">
+              <Video className="size-4" />
+            </span>
+            <div>
+              <h1 className="text-lg font-semibold leading-[22px]">Study reels</h1>
+              <p className="text-xs text-muted-foreground">Short videos picked for your subject</p>
             </div>
-            <span className="text-2xl" aria-hidden="true">{subjectIcon}</span>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-[1fr_400px] gap-6">
-            <div className="space-y-4">
-              <Card className="gap-0 overflow-hidden rounded-3xl border-0 bg-black py-0 shadow-lg">
-                <div className="relative aspect-[9/16] max-h-[600px] bg-gradient-to-br from-[#12306f] to-[#08142e] flex items-center justify-center">
-                  {currentReel && isPlaying ? (
-                    <iframe
-                      key={`${currentReel.videoId}-${isMuted ? "muted" : "sound"}`}
-                      src={withPlayerParams(currentReel.embedUrl, { muted: isMuted, videoId: currentReel.videoId })}
-                      title={currentReel.title}
-                      className="absolute inset-0 h-full w-full"
-                      allow="autoplay; encrypted-media; picture-in-picture; web-share"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      allowFullScreen
-                    />
-                  ) : currentReel ? (
-                    <img
-                      src={currentReel.thumbnail || "/placeholder.svg"}
-                      alt={currentReel.title}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : null}
+      <main className="mx-auto flex max-w-[1200px] flex-wrap items-start gap-7 px-6 pb-16 pt-7">
+        <section className="flex min-w-0 flex-[999_1_420px] flex-col items-center gap-4">
+          <div className="relative aspect-[9/16] w-full max-w-[380px] overflow-hidden rounded-3xl bg-gradient-to-br from-[#12306f] to-[#08142e] shadow-lg">
+            {currentReel && isPlaying ? (
+              <iframe
+                key={`${currentReel.videoId}-${isMuted ? "muted" : "sound"}`}
+                src={withPlayerParams(currentReel.embedUrl, { muted: isMuted, videoId: currentReel.videoId })}
+                title={currentReel.title}
+                className="absolute inset-0 h-full w-full"
+                allow="autoplay; encrypted-media; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            ) : currentReel ? (
+              <img
+                src={currentReel.thumbnail || "/placeholder.svg"}
+                alt={currentReel.title}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : null}
 
-                  {!currentReel && !isLoading ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 px-6 text-center">
-                      <div>
-                        <p className="text-white font-semibold">No reels available</p>
-                        <p className="text-sm text-white/70 mt-2">Select another topic to pull a different set of YouTube videos.</p>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {isLoading ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 px-6 text-center">
-                      <div>
-                        <p className="text-white font-semibold">Loading reels</p>
-                        <p className="text-sm text-white/70 mt-2">Fetching YouTube videos for {selectedTopic === ALL_TOPICS ? subject.name : selectedTopic}.</p>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {currentReel ? (
-                    <>
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
-                        {!isPlaying ? (
-                          <Button
-                            size="lg"
-                            onClick={() => setIsPlaying(true)}
-                            className="pointer-events-auto w-16 h-16 rounded-full bg-white/90 hover:bg-white text-black shadow-none"
-                          >
-                            <Play className="w-8 h-8 ml-1" />
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <div className="absolute top-4 left-4">
-                        <Badge className="bg-black/70 text-white border-0">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {currentReel.durationLabel}
-                        </Badge>
-                      </div>
-
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                        <Badge className="mb-2">{currentReel.topic || subject.name}</Badge>
-                        <h2 className="text-xl font-bold text-white mb-2">{currentReel.title}</h2>
-                        <p className="text-sm text-white/80">{currentReel.description || `${currentReel.channelTitle} • ${formatPublishedDate(currentReel.publishedAt)}`}</p>
-                      </div>
-
-                      <div className="absolute right-4 bottom-20 flex flex-col gap-4">
-                        <Button
-                          size="lg"
-                          variant="ghost"
-                          onClick={handleLike}
-                          className={`w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-1 ${
-                            isLiked ? "text-red-500" : "text-white"
-                          }`}
-                        >
-                          <ThumbsUp className={`w-6 h-6 ${isLiked ? "fill-current" : ""}`} />
-                          <span className="text-xs">{formatCount(currentReel.youtubeViewCount)}</span>
-                        </Button>
-                        <Button
-                          size="lg"
-                          variant="ghost"
-                          onClick={handleSave}
-                          className={`w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm ${
-                            isSaved ? "text-accent" : "text-white"
-                          }`}
-                        >
-                          <Bookmark className={`w-6 h-6 ${isSaved ? "fill-current" : ""}`} />
-                        </Button>
-                        <Button
-                          size="lg"
-                          variant="ghost"
-                          onClick={handleShare}
-                          className="w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white"
-                        >
-                          <Share2 className="w-6 h-6" />
-                        </Button>
-                        <Button
-                          size="lg"
-                          variant="ghost"
-                          onClick={() => {
-                            setIsMuted((value) => !value)
-                            if (!isPlaying) {
-                              setIsPlaying(true)
-                            }
-                          }}
-                          className="w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white"
-                        >
-                          {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-                        </Button>
-                        <Button
-                          size="lg"
-                          variant="ghost"
-                          onClick={() => setIsPlaying((value) => !value)}
-                          className="w-12 h-12 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white"
-                        >
-                          {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
-                        </Button>
-                      </div>
-
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={handlePrevious}
-                          disabled={currentReelIndex === 0}
-                          className="w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white disabled:opacity-30"
-                        >
-                          <ChevronUp className="w-5 h-5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleNext}
-                          disabled={currentReelIndex === reels.length - 1}
-                          className="w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white disabled:opacity-30"
-                        >
-                          <ChevronDown className="w-5 h-5" />
-                        </Button>
-                      </div>
-                    </>
-                  ) : null}
+            {!currentReel && !isLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 px-6 text-center">
+                <div>
+                  <p className="font-semibold text-white">No reels available</p>
+                  <p className="mt-2 text-sm text-white/70">Select another topic to pull a different set of YouTube videos.</p>
                 </div>
-              </Card>
+              </div>
+            ) : null}
 
-              <Card className="rounded-2xl">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Reel Details</h3>
-                  {currentReel ? (
-                    <ul className="space-y-2">
-                      {currentReelDetails.map((detail, index) => (
-                        <li key={index} className="flex items-start gap-3">
-                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-xs font-semibold text-primary">{index + 1}</span>
-                          </div>
-                          <span className="text-muted-foreground">{detail}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-muted-foreground">Choose a reel to see its details.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="lg:sticky lg:top-24 h-fit space-y-4">
-              <Card className="rounded-2xl">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">Filter Topics</h3>
-                      <p className="text-xs text-muted-foreground">Pull reels for the exact topic you want.</p>
-                    </div>
-                    <Badge variant="secondary">{subject.topics.length}</Badge>
-                  </div>
-                  <div className="flex gap-2 mb-3">
-                    <Button
-                      variant={!showSaved ? "default" : "outline"}
-                      size="sm"
-                      className="min-h-11 rounded-full shadow-none"
-                      onClick={() => setShowSaved(false)}
-                    >
-                      All reels
-                    </Button>
-                    <Button
-                      variant={showSaved ? "default" : "outline"}
-                      size="sm"
-                      className="min-h-11 rounded-full shadow-none"
-                      onClick={() => setShowSaved(true)}
-                    >
-                      <Bookmark className="w-3 h-3 mr-1" />
-                      Saved
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {topicButtons.map((topic) => (
-                      <Button
-                        key={topic}
-                        variant={selectedTopic === topic ? "default" : "outline"}
-                        size="sm"
-                        className="min-h-11 rounded-full shadow-none"
-                        disabled={showSaved}
-                        onClick={() => setSelectedTopic(topic)}
-                      >
-                        {topic}
-                      </Button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="gap-0 overflow-hidden rounded-2xl py-0">
-                <div className="p-4 border-b">
-                  <h3 className="text-lg font-semibold text-foreground">{showSaved ? "Saved Reels" : "All Reels"}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {reels.length ? `${currentReelIndex + 1} of ${reels.length}` : "No reels loaded"}
+            {isLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 px-6 text-center">
+                <div>
+                  <p className="font-semibold text-white">Loading reels</p>
+                  <p className="mt-2 text-sm text-white/70">
+                    Fetching YouTube videos for {selectedTopic === ALL_TOPICS ? subject.name : selectedTopic}.
                   </p>
-                  {topicFallback ? (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      No videos for this topic yet, showing all topics.
-                    </p>
-                  ) : null}
-                  {error ? (
-                    <div className="mt-2 flex items-center gap-2">
-                      <p className="text-xs text-destructive">{error}</p>
-                      {hasAuthToken() ? (
-                        <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setReloadKey((k) => k + 1)}>
-                          Retry
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
                 </div>
-                <ScrollArea className="h-[500px]">
-                  <div className="p-4 space-y-3">
-                    {reels.map((reel, index) => (
-                      <Card
-                        key={reel.id}
-                        onClick={() => {
-                          setCurrentReelIndex(index)
-                          setIsPlaying(true)
-                        }}
-                        className={`cursor-pointer transition-all duration-200 ${
-                          index === currentReelIndex
-                            ? "border-2 border-primary bg-primary/5"
-                            : "border hover:border-primary/50"
-                        }`}
-                      >
-                        <CardContent className="p-3">
-                          <div className="flex gap-3">
-                            <div className="relative w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gradient-to-br from-navy to-[#061436]">
-                              <img
-                                src={reel.thumbnail || "/placeholder.svg"}
-                                alt={reel.title}
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Play className="w-6 h-6 text-white drop-shadow-lg" />
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <Badge className="mb-1 text-xs">{reel.topic || subject.name}</Badge>
-                              <h4 className="font-semibold text-sm text-foreground mb-1 line-clamp-2">{reel.title}</h4>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>{reel.durationLabel}</span>
-                                <span>•</span>
-                                <span>{formatCount(reel.youtubeViewCount)} views</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{reel.channelTitle}</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                    {hasMore ? (
-                      <Button variant="outline" size="sm" className="min-h-11 w-full shadow-none" onClick={loadMore} disabled={loadingMore}>
-                        {loadingMore ? "Loading…" : "Load more"}
-                      </Button>
-                    ) : null}
-                    {!reels.length && !isLoading ? (
-                      <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                        {showSaved
-                          ? "You haven't saved any reels yet. Tap the bookmark on a reel to keep it here."
-                          : "No reels matched this filter. Try a different topic or go back to all topics."}
-                      </div>
-                    ) : null}
+              </div>
+            ) : null}
+
+            {currentReel ? (
+              <>
+                {!isPlaying ? (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+                    <Button
+                      onClick={() => setIsPlaying(true)}
+                      aria-label="Play"
+                      className="pointer-events-auto size-[72px] rounded-full bg-white/90 text-[#08142e] shadow-none hover:bg-white"
+                    >
+                      <Play className="ml-1 size-8" />
+                    </Button>
                   </div>
-                </ScrollArea>
-              </Card>
-            </div>
+                ) : null}
+
+                <span className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-md bg-black/65 px-2 py-0.5 text-xs font-medium text-white">
+                  <Clock className="size-3" />
+                  {currentReel.durationLabel}
+                </span>
+
+                <div className="absolute bottom-[120px] right-3 flex flex-col gap-3">
+                  <Button variant="ghost" onClick={handleLike} aria-label="Like" aria-pressed={isLiked} className={cn(roundBtn, isLiked && "text-red-400")}>
+                    <ThumbsUp className={cn("size-5", isLiked && "fill-current")} />
+                  </Button>
+                  <Button variant="ghost" onClick={handleSave} aria-label="Saved" aria-pressed={isSaved} className={cn(roundBtn, isSaved && "text-accent hover:text-accent")}>
+                    <Bookmark className={cn("size-5", isSaved && "fill-current")} />
+                  </Button>
+                  <Button variant="ghost" onClick={handleShare} aria-label="Share" className={roundBtn}>
+                    <Share2 className="size-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setIsMuted((value) => !value)
+                      if (!isPlaying) setIsPlaying(true)
+                    }}
+                    aria-label={isMuted ? "Unmute" : "Mute"}
+                    className={roundBtn}
+                  >
+                    {isMuted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
+                  </Button>
+                </div>
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/85 to-transparent p-5 text-white">
+                  <Badge className="w-fit">{currentReel.topic || subject.name}</Badge>
+                  <p className="text-lg font-bold leading-6">{currentReel.title}</p>
+                  <p className="text-xs text-white/80">
+                    {currentReel.channelTitle} · {formatCount(currentReel.youtubeViewCount)} views
+                  </p>
+                </div>
+              </>
+            ) : null}
           </div>
-        </div>
+
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="icon" onClick={handlePrevious} disabled={currentReelIndex === 0} aria-label="Previous reel" className="size-11 rounded-full shadow-none">
+              <ChevronUp className="size-5" />
+            </Button>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {reels.length ? `${currentReelIndex + 1} of ${reels.length}` : "No reels loaded"}
+            </span>
+            <Button variant="outline" size="icon" onClick={handleNext} disabled={currentReelIndex === reels.length - 1} aria-label="Next reel" className="size-11 rounded-full shadow-none">
+              <ChevronDown className="size-5" />
+            </Button>
+          </div>
+        </section>
+
+        <aside className="flex max-w-[420px] flex-[1_1_340px] flex-col gap-4">
+          <Card className="gap-3.5 rounded-2xl p-4">
+            <div className="flex gap-0.5 rounded-xl bg-muted p-[3px]">
+              <button
+                onClick={() => setShowSaved(false)}
+                aria-pressed={!showSaved}
+                className={cn("min-h-11 flex-1 rounded-lg text-sm font-medium text-muted-foreground", !showSaved && "bg-card text-foreground shadow-xs")}
+              >
+                All reels
+              </button>
+              <button
+                onClick={() => setShowSaved(true)}
+                aria-pressed={showSaved}
+                className={cn("flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-sm font-medium text-muted-foreground", showSaved && "bg-card text-foreground shadow-xs")}
+              >
+                <Bookmark className="size-3.5" />
+                Saved
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {topicButtons.map((topic) => (
+                <Button
+                  key={topic}
+                  variant={selectedTopic === topic ? "default" : "outline"}
+                  size="sm"
+                  className="min-h-11 rounded-full shadow-none"
+                  disabled={showSaved}
+                  onClick={() => setSelectedTopic(topic)}
+                >
+                  {topic}
+                </Button>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="gap-0 overflow-hidden rounded-2xl py-0">
+            <div className="flex items-center justify-between border-b px-4 py-3.5">
+              <h2 className="text-base font-semibold">{showSaved ? "Saved reels" : "Up next"}</h2>
+              <span className="text-xs text-muted-foreground">{selectedTopic === ALL_TOPICS ? subject.name : selectedTopic}</span>
+            </div>
+            {topicFallback ? (
+              <p className="px-4 pt-3 text-xs text-muted-foreground">No videos for this topic yet, showing all topics.</p>
+            ) : null}
+            <ScrollArea className="h-[500px]">
+              <div className="flex flex-col gap-1 p-2">
+                {reels.map((reel, index) => (
+                  <button
+                    key={reel.id}
+                    onClick={() => {
+                      setCurrentReelIndex(index)
+                      setIsPlaying(true)
+                    }}
+                    className={cn(
+                      "flex gap-3 rounded-xl border-2 p-2 text-left",
+                      index === currentReelIndex ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/60",
+                    )}
+                  >
+                    <span className="relative inline-flex h-[76px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-gradient-to-br from-navy to-[#061436] text-white">
+                      <img src={reel.thumbnail || "/placeholder.svg"} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      <Play className="relative size-5 drop-shadow-lg" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="line-clamp-2 text-[13px] font-semibold leading-[18px]">{reel.title}</span>
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {reel.durationLabel} · {reel.topic || subject.name}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+                {hasMore ? (
+                  <Button variant="ghost" size="sm" className="min-h-11 w-full shadow-none" onClick={loadMore} disabled={loadingMore}>
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </Button>
+                ) : null}
+                {!reels.length && !isLoading ? (
+                  <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                    {showSaved
+                      ? "You haven't saved any reels yet. Tap the bookmark on a reel to keep it here."
+                      : "No reels matched this filter. Try a different topic or go back to all topics."}
+                  </div>
+                ) : null}
+              </div>
+            </ScrollArea>
+          </Card>
+
+          {error ? (
+            <div role="alert" className="flex items-center gap-3 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-[13px] text-destructive">
+              <span>{error}</span>
+              {hasAuthToken() ? (
+                <Button size="sm" variant="outline" className="ml-auto min-h-11 shadow-none" onClick={() => setReloadKey((k) => k + 1)}>
+                  Retry
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </aside>
       </main>
     </div>
   )
 }
-
-
-
