@@ -8,8 +8,8 @@ import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sparkles } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { AlertCircle } from "lucide-react"
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
@@ -45,90 +45,77 @@ export function LoginForm() {
                          error.toLowerCase().includes("backend may be down")
 
   return (
-    <Card className="border-2 shadow-2xl backdrop-blur-sm bg-card/95">
-      <CardHeader className="space-y-4 text-center pb-8">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
-            <Sparkles className="w-8 h-8 text-primary-foreground" />
-          </div>
+    <Card className="w-full max-w-[440px] gap-0 rounded-3xl border-border p-8 shadow-lg">
+      <div className="mb-6 space-y-1.5">
+        <h2 className="text-[32px] font-bold leading-[38px]">Welcome back</h2>
+        <p className="text-[15px] leading-[22px] text-muted-foreground">Log in to keep your study streak going.</p>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-[18px]">
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-sm font-medium">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="student@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="h-11 rounded-2xl"
+          />
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Welcome to Sapphire
-          </CardTitle>
-          <CardDescription className="text-base text-muted-foreground">
-            Your AI study companion for CXC success
-          </CardDescription>
+          <Label htmlFor="password" className="text-sm font-medium">
+            Password
+          </Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="h-11 rounded-2xl"
+          />
         </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
-              <p className="text-destructive text-sm">{error}</p>
+        {error && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm"
+          >
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+            <div className="space-y-2">
+              <p className="text-destructive">{error}</p>
               {isUserNotFoundError && (
-                <div className="pt-2 border-t border-destructive/20">
-                  <Link href="/dashboard/Signup" className="text-sm text-primary hover:underline font-medium">
+                <div className="border-t border-destructive/20 pt-2">
+                  <Link href="/dashboard/Signup" className="text-sm font-medium text-primary hover:underline">
                     → Create a new account here
                   </Link>
                 </div>
               )}
               {isNetworkError && (
-                <div className="pt-2 border-t border-destructive/20">
+                <div className="border-t border-destructive/20 pt-2">
                   <p className="text-sm text-muted-foreground">
                     💡 You can use the demo account while the server is unavailable:
                   </p>
-                  <p className="text-sm font-mono bg-muted px-2 py-1 rounded mt-1">
-                    andrew.lee@demo.com
-                  </p>
+                  <p className="mt-1 rounded bg-muted px-2 py-1 font-mono text-sm">andrew.lee@demo.com</p>
                 </div>
               )}
             </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium">
-              Email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="student@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="h-11 rounded-xl"
-            />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-sm font-medium">
-              Password
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="h-11 rounded-xl"
-            />
-          </div>
-          <Button
-            type="submit"
-            className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-            disabled={isLoading}
-          >
-            {isLoading ? "Signing in..." : "Sign In"}
-          </Button>
-
-          <div className="text-center">
-            {/* ⬇ This makes the login page link to the sign-up page */}
-            <Button type="button" variant="ghost" className="text-sm text-muted-foreground hover:text-primary transition-colors" asChild>
-              <Link href="/dashboard/Signup">Dont have an account? Sign Up!</Link>
-            </Button>
-          </div>
-        </form>
-      </CardContent>
+        )}
+        <Button type="submit" className="h-11 w-full rounded-2xl font-semibold" disabled={isLoading}>
+          {isLoading ? "Signing in..." : "Log in"}
+        </Button>
+      </form>
+      <Button
+        asChild
+        variant="outline"
+        className="mt-5 h-11 w-full rounded-2xl border-primary font-semibold text-primary-strong shadow-none"
+      >
+        <Link href="/dashboard/Signup">New here? Create an account</Link>
+      </Button>
     </Card>
   )
 }
