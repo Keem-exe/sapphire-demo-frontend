@@ -34,7 +34,7 @@ export default function SelectLevelPage() {
           <button type="button" onClick={() => handleSelectLevel("csec")} className="lvl lvl-csec">
             <div className="lvl-art">
               <span className="lvl-shadow lvl-shadow-hop" />
-              <Sapphy blush className="lvl-sap lvl-sap-hop relative z-[1] size-[170px]" />
+              <Sapphy mood="happy" blush className="lvl-sap lvl-sap-hop relative z-[1] size-[170px]" />
               <p className="lvl-strip">Caribbean Secondary Education Certificate</p>
             </div>
             <div className="lvl-foot">
@@ -63,7 +63,7 @@ export default function SelectLevelPage() {
           <button type="button" onClick={() => handleSelectLevel("cape")} className="lvl lvl-cape">
             <div className="lvl-art">
               <span className="lvl-shadow lvl-shadow-bob" />
-              <Sapphy className="lvl-sap lvl-sap-bob relative z-[1] size-[170px]" />
+              <Sapphy mood="happy" className="lvl-sap lvl-sap-bob relative z-[1] size-[170px]" />
               <p className="lvl-strip">Caribbean Advanced Proficiency Examination</p>
             </div>
             <div className="lvl-foot">

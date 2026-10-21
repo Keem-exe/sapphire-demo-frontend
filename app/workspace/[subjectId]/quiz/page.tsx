@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
 import { AiRating } from "@/components/feedback/ai-rating";
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
+import { SapphyFab } from "@/components/sapphy-fab"
 import { ArrowLeft, Brain, CheckCircle2, XCircle, Trophy, AlertTriangle } from "lucide-react";
 
 type Question = {
@@ -283,6 +284,7 @@ export default function QuizPage() {
   if (alreadySubmitted) {
     return (
       <div className="min-h-screen bg-background">
+        <SapphyFab activity="quiz-setup" subjectId={subjectId} />
         {header("Quiz")}
         <div className="mx-auto max-w-xl p-6">
           <div className="flex items-start gap-3 rounded-xl border border-status-warning/40 bg-status-warning-subtle p-5">
@@ -312,6 +314,7 @@ export default function QuizPage() {
   if (!questions.length) {
     return (
       <div className="min-h-screen bg-background">
+        <SapphyFab activity="quiz-setup" subjectId={subjectId} />
         {header("Quiz", { tile: true })}
         <main className="mx-auto flex max-w-[720px] flex-col gap-6 px-6 pb-16 pt-10">
           <div className="space-y-1.5">
@@ -410,6 +413,7 @@ export default function QuizPage() {
     const pct = Math.round(backendResult.percentageScore ?? 0);
     return (
       <div className="min-h-screen bg-background">
+        <SapphyFab activity="quiz-results" subjectId={subjectId} />
         {header("Quiz results")}
         <main className="mx-auto flex max-w-[760px] flex-col gap-4 px-6 pb-16 pt-8">
           {/* Score badge */}
@@ -507,6 +511,7 @@ export default function QuizPage() {
   if (result !== null) {
     return (
       <div className="min-h-screen bg-background">
+        <SapphyFab activity="quiz-results" subjectId={subjectId} />
         {header("Quiz results")}
         <main className="mx-auto flex max-w-[760px] flex-col gap-4 px-6 pb-16 pt-8">
           <Card className="rounded-2xl">
@@ -539,6 +544,7 @@ export default function QuizPage() {
   const answered = questions.filter((q) => answers[q.id]?.trim()).length;
   return (
     <div className="min-h-screen bg-background">
+      <SapphyFab activity="quiz-active" subjectId={subjectId} />
       {header(`${subject.name} quiz`, {
         badge: difficulty.charAt(0).toUpperCase() + difficulty.slice(1),
         right: (

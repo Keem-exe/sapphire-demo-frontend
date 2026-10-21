@@ -263,6 +263,22 @@
   overflow: visible;
 }
 @media (prefers-reduced-motion: no-preference) {
+  .sapphy .sp-body {
+    animation: sapphy-float 3.2s ease-in-out infinite;
+  }
+  .sapphy.is-thinking .sp-body {
+    animation-duration: 1.1s;
+  }
+  .sapphy.is-thinking .sp-eyes {
+    animation: sapphy-look 1.8s ease-in-out infinite;
+  }
+  .sapphy.is-happy .sp-body {
+    animation: sapphy-hop 1.6s ease-in-out infinite;
+  }
+  /* the level cards animate the whole mascot instead */
+  .lvl-art .sapphy .sp-body {
+    animation: none;
+  }
   .lvl-sap {
     transform-origin: 50% 92%;
   }
@@ -369,6 +385,7 @@
 .g-flash { background: linear-gradient(90deg, var(--tool-flashcards), var(--tool-flashcards-end)); }
 .g-assign { background: linear-gradient(90deg, var(--tool-assignment), var(--tool-assignment-end)); }
 .g-cape { background: linear-gradient(90deg, var(--level-cape), var(--tool-reels)); }
+.g-res { background: linear-gradient(135deg, #0a2a6b, #1b4db3); }
 
 /* Workspace: draggable column handle and narrow-screen stacking */
 .rz {
@@ -434,3 +451,18 @@
     display: none !important;
   }
 }
+
+@keyframes sapphy-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2.5px); }
+}
+@keyframes sapphy-hop {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-5px); }
+  55% { transform: translateY(0); }
+}
+@keyframes sapphy-look {
+  0%, 100% { transform: translate(-1.2px, -1.5px); }
+  50% { transform: translate(1.2px, -1.5px); }
+}
+

@@ -17,6 +17,7 @@ import { apiClient } from "@/lib/api-client";
 import { AiRating } from "@/components/feedback/ai-rating";
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
 import { useToast } from "@/hooks/use-toast";
+import { SapphyFab } from "@/components/sapphy-fab"
 import { ArrowLeft, Layers, Play, Trophy } from "lucide-react";
 
 // Map legacy/alias route IDs to canonical SUBJECTS keys
@@ -120,6 +121,7 @@ export default function FlashcardsPage() {
     return (
       <div className="min-h-screen bg-background">
         {header}
+        <SapphyFab activity="flashcards" subjectId={canonicalId} />
         <main className="mx-auto flex max-w-[960px] flex-col gap-6 px-6 pb-16 pt-8">
           <section
             className={cn(
@@ -342,6 +344,7 @@ const handleEndSession = async () => {
   return (
     <div className="min-h-screen bg-background">
       {header}
+      <SapphyFab activity="flashcards" subjectId={canonicalId} startOpen={false} />
       <main className="mx-auto flex max-w-[960px] flex-col gap-6 px-6 pb-16 pt-8">
         <Card className="gap-[18px] rounded-2xl p-6">
           <div className="flex flex-wrap items-center justify-between gap-2">

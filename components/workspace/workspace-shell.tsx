@@ -118,6 +118,7 @@ const FULL_ROUTE: Partial<Record<ViewId, string>> = {
   quiz: "quiz",
   reels: "reels",
   assign: "assignment",
+  resources: "resources",
 }
 
 function Bar({ pct, thin }: { pct: number; thin?: boolean }) {

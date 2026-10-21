@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Clock,
 } from "lucide-react"
+import { SapphyFab } from "@/components/sapphy-fab"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
 import { hasAuthToken, resolveBackendSubject, fetchBackendTopics, type BackendTopic } from "@/lib/services/backend-subject-map"
@@ -364,6 +365,7 @@ export default function ReelsPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SapphyFab activity="reels" subjectId={subjectId} startOpen={false} />
       <header className="hdr">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center px-6">
           <div className="flex items-center gap-3">

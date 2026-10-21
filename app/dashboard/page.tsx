@@ -37,6 +37,7 @@ import {
   MessageSquarePlus,
   ShieldCheck,
 } from "lucide-react"
+import { SapphyFab } from "@/components/sapphy-fab"
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog"
 
 // Initial CSEC subjects
@@ -531,6 +532,7 @@ export default function DashboardPage() {
       </main>
 
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+      <SapphyFab activity="dashboard" subjectId={selectedLevel === "cape" ? "cape-puremath" : "csec-math"} />
 
       {/* Add Subject Dialog */}
       <AddSubjectDialog

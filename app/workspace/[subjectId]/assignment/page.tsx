@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { ArrowLeft, ClipboardList } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { SapphyFab } from "@/components/sapphy-fab"
 import { AiRating } from "@/components/feedback/ai-rating"
 import { apiClient } from "@/lib/api-client"
 import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map"
@@ -76,6 +77,7 @@ export default function AssignmentPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SapphyFab key={showSchemes ? "marked" : "working"} activity="assignment" subjectId={subjectId} startOpen={showSchemes} />
       <header className="hdr">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-6">
           <Button asChild variant="ghost" size="sm" className="min-h-11 shadow-none">
