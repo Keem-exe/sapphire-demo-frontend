@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
+import type React from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { SubjectCard } from "@/components/subject-card"
 import { CapeSubjectCard } from "@/components/cape-subject-card"
@@ -12,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import {
-  Sparkles,
   Plus,
   Search,
   LogOut,
@@ -290,23 +291,18 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10">
+    <div className="wash min-h-screen">
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <header className="hdr">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
-                <Sparkles className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  Sapphire
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  {selectedLevel === "csec" ? "CSEC" : "CAPE"} Study Companion
-                </p>
-              </div>
+              <h1>
+                <Image src="/sapphire-logo.png" alt="Sapphire OS" width={119} height={40} priority className="h-10 w-auto" />
+              </h1>
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium">
+                {selectedLevel === "csec" ? "CSEC" : "CAPE"} Study Companion
+              </Badge>
             </div>
             <div className="flex items-center gap-2">
               {user?.accountType === "admin" && (
@@ -384,14 +380,15 @@ export default function DashboardPage() {
         ) : null}
 
         {/* Mission Hero */}
-        <div className="mb-8 rounded-3xl border bg-gradient-to-r from-primary/15 via-background to-secondary/15 p-6 md:p-8">
+        <div className="hero-blue mb-8 rounded-3xl p-6 md:p-9">
+          <div className="doodles" style={{ "--dx": "-120px", "--dy": "-80px" } as React.CSSProperties} aria-hidden="true" />
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-primary">Today&apos;s Mission</p>
-              <h2 className="text-3xl font-bold text-foreground mt-2">
+              <p className="text-sm font-semibold uppercase tracking-wide text-sky">Today&apos;s Mission</p>
+              <h2 className="text-3xl font-bold mt-2">
                 {user?.first_name ? `${user.first_name}, stay in momentum.` : "Stay in momentum."}
               </h2>
-              <p className="text-foreground/85 text-base mt-2 max-w-xl">
+              <p className="text-white/90 text-base mt-2 max-w-xl">
                 Build daily consistency with fast wins first. Dashboard now leads with action so you can study before distractions.
               </p>
               <div className="flex flex-wrap gap-2 mt-4">
@@ -399,10 +396,10 @@ export default function DashboardPage() {
                   <Flame className="w-3 h-3 mr-1" />
                   Momentum Mode
                 </Badge>
-                <Badge variant="outline" className="px-3 py-1 text-xs">
+                <Badge variant="outline" className="border-white/40 px-3 py-1 text-xs text-white">
                   {selectedLevel === "csec" ? "CSEC Focus" : "CAPE Focus"}
                 </Badge>
-                <Badge variant="outline" className="px-3 py-1 text-xs">
+                <Badge variant="outline" className="border-white/40 px-3 py-1 text-xs text-white">
                   {nextMilestone > 0 ? `${Math.ceil(nextMilestone / 5)} sessions to 70% mastery` : "At mastery momentum"}
                 </Badge>
               </div>
@@ -411,7 +408,7 @@ export default function DashboardPage() {
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <Button
                     onClick={handlePrimaryStart}
-                    className="min-h-11 rounded-xl px-6 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-white font-semibold shadow-xl focus-visible:ring-2 focus-visible:ring-blue-300"
+                    className="min-h-11 rounded-xl px-6 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold shadow-none focus-visible:ring-2 focus-visible:ring-white"
                   >
                     <Target className="w-4 h-4 mr-2" />
                     Start Now: {primaryAction.label}
@@ -423,7 +420,7 @@ export default function DashboardPage() {
                         key={action.label}
                         variant="outline"
                         onClick={() => handleSecondaryAction(action.path, action.taskId)}
-                        className="min-h-11 rounded-xl border-muted-foreground/30 text-foreground/90 hover:bg-background focus-visible:ring-2 focus-visible:ring-primary/70"
+                        className="min-h-11 rounded-xl border-white/40 bg-transparent text-white shadow-none hover:bg-white/15 hover:text-white focus-visible:ring-2 focus-visible:ring-white"
                       >
                         <Icon className="w-4 h-4 mr-2" />
                         {action.label}
@@ -434,7 +431,7 @@ export default function DashboardPage() {
               ) : null}
             </div>
 
-            <Card className="w-full md:w-[280px] border-primary/20 shadow-lg">
+            <Card className="w-full md:w-[280px] border-transparent shadow-none">
               <CardContent className="p-5 space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Average Progress</span>
@@ -458,16 +455,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Win Streak */}
-        <Card className="mb-8 border-2 border-primary/20">
+        <Card className="mb-8 rounded-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Flame className="w-5 h-5 text-orange-500" />
+              <Flame className="w-5 h-5 text-streak" />
               Quick-Win Streak
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between text-sm">
-              <p className="text-foreground/90">Daily streak: <span className="font-semibold text-orange-600">{dailyStreak} days</span></p>
+              <p className="text-foreground/90">Daily streak: <span className="font-semibold text-streak">{dailyStreak} days</span></p>
               <p className="text-muted-foreground">{tasksDone}/3 tasks today</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -495,12 +492,12 @@ export default function DashboardPage() {
               placeholder="Search subjects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 rounded-xl bg-card border-2 focus-visible:ring-2 focus-visible:ring-primary/70"
+              className="pl-10 h-12 rounded-2xl bg-card focus-visible:ring-2 focus-visible:ring-primary/70"
             />
           </div>
           <Button
             onClick={() => setShowAddDialog(true)}
-            className="h-12 px-6 rounded-xl bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground font-medium shadow-lg hover:shadow-xl transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary/70"
+            className="h-12 px-6 rounded-2xl font-medium focus-visible:ring-2 focus-visible:ring-primary/70"
           >
             <Plus className="w-5 h-5 mr-2" />
             Add Subject

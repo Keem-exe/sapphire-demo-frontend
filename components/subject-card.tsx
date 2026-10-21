@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { BookOpen, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { subjectStripe } from "@/lib/brand"
 
 interface Subject {
   id: string
@@ -43,9 +44,9 @@ export function SubjectCard({ subject }: SubjectCardProps) {
   }
 
   return (
-    <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-primary/50 cursor-pointer overflow-hidden">
-      <div className={`h-2 bg-gradient-to-r ${subject.color}`} />
-      <CardContent className="p-6">
+    <Card className="group gap-0 overflow-hidden rounded-2xl py-0 transition-colors hover:border-primary/50 cursor-pointer">
+      <div className={`h-1.5 ${subjectStripe(subject.id)}`} />
+      <CardContent className="p-6 pt-6">
         {/* Icon and Name */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -80,7 +81,7 @@ export function SubjectCard({ subject }: SubjectCardProps) {
         {/* Action Button */}
         <Button
           onClick={handleOpenSubject}
-          className="w-full rounded-xl bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground font-medium shadow-md hover:shadow-lg transition-all duration-200"
+          className="w-full rounded-xl font-medium"
         >
           Continue Learning
         </Button>

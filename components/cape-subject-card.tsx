@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { BookOpen, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { subjectStripe } from "@/lib/brand"
 
 interface CapeUnit {
   unitNumber: number
@@ -34,8 +35,8 @@ export function CapeSubjectCard({ subject }: CapeSubjectCardProps) {
   }
 
   return (
-    <Card className="group hover:shadow-2xl transition-all duration-300 border-2 hover:border-primary/50 overflow-hidden">
-      <div className={`h-2 bg-gradient-to-r ${subject.color}`} />
+    <Card className="group gap-0 overflow-hidden rounded-2xl py-0 transition-colors hover:border-primary/50">
+      <div className={`h-1.5 ${subjectStripe(subject.id)}`} />
       <CardContent className="p-6">
         {/* Icon and Name */}
         <div className="flex items-center gap-3 mb-6">
@@ -70,7 +71,7 @@ export function CapeSubjectCard({ subject }: CapeSubjectCardProps) {
           <Button
             onClick={() => handleOpenUnit(1)}
             size="sm"
-            className="w-full rounded-lg bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all duration-200"
+            className="w-full rounded-lg font-medium"
           >
             Study Unit 1
           </Button>
@@ -98,7 +99,7 @@ export function CapeSubjectCard({ subject }: CapeSubjectCardProps) {
           <Button
             onClick={() => handleOpenUnit(2)}
             size="sm"
-            className="w-full rounded-lg bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all duration-200"
+            className="w-full rounded-lg font-medium"
           >
             Study Unit 2
           </Button>

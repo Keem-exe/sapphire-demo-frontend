@@ -29,7 +29,16 @@
   --sky: #72d7fa;
   --navy: #0a2a6b;
   --level-csec: #0f4fba;
+  --streak: #b86e00;
   --level-cape: #0a2a6b;
+  --tool-quiz: #1058c9;
+  --tool-quiz-end: #72d7fa;
+  --tool-reels: #1b2f8f;
+  --tool-reels-end: #4a6cf0;
+  --tool-flashcards: #0788c4;
+  --tool-flashcards-end: #3cc4f0;
+  --tool-assignment: #ffd43b;
+  --tool-assignment-end: #ffb800;
   --chart-1: #1058c9;
   --chart-2: #72d7fa;
   --chart-3: #ffd43b;
@@ -109,6 +118,7 @@
   --color-ring: var(--ring);
   --color-sky: var(--sky);
   --color-navy: var(--navy);
+  --color-streak: var(--streak);
   --color-primary-strong: var(--primary-strong);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
