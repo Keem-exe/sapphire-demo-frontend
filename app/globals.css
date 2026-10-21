@@ -1,47 +1,49 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./sapphire.css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.99 0.002 240); /* Clean white */
-  --foreground: oklch(0.15 0.01 240); /* Near black */
-  --card: oklch(1 0 0); /* Pure white */
-  --card-foreground: oklch(0.15 0.01 240);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.01 240);
-  /* Updated primary color from purple-blue to warm orange */
-  --primary: oklch(0.58 0.18 45); /* Warm orange */
-  --primary-foreground: oklch(0.99 0.002 240);
-  --secondary: oklch(0.92 0.01 240); /* Light gray */
-  --secondary-foreground: oklch(0.15 0.01 240);
-  --muted: oklch(0.96 0.005 240);
-  --muted-foreground: oklch(0.5 0.01 240);
-  /* Updated accent color from purple to amber */
-  --accent: oklch(0.68 0.16 65); /* Vibrant amber accent */
-  --accent-foreground: oklch(0.15 0.01 240);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.99 0.002 240);
-  --border: oklch(0.92 0.005 240);
-  --input: oklch(0.96 0.005 240);
-  /* Updated ring color to match new primary */
-  --ring: oklch(0.58 0.18 45);
-  /* Updated chart colors to orange/amber palette */
-  --chart-1: oklch(0.58 0.18 45);
-  --chart-2: oklch(0.68 0.16 65);
-  --chart-3: oklch(0.62 0.17 35);
-  --chart-4: oklch(0.55 0.15 55);
-  --chart-5: oklch(0.72 0.14 75);
+  /* Sapphire OS brand: sapphire, sky, sun on a warm cream canvas with navy text */
+  --background: #fff7ee;
+  --foreground: #0a1f44;
+  --card: #ffffff;
+  --card-foreground: #0a1f44;
+  --popover: #ffffff;
+  --popover-foreground: #0a1f44;
+  --primary: #1058c9;
+  --primary-strong: #0b46a3;
+  --primary-foreground: #ffffff;
+  --secondary: #d6f1fd;
+  --secondary-foreground: #0a1f44;
+  --muted: #f6eee2;
+  --muted-foreground: #5a6580;
+  --accent: #ffd43b;
+  --accent-foreground: #0a1f44;
+  --destructive: #d40924;
+  --destructive-foreground: #fbfcfd;
+  --border: #eadfcf;
+  --input: #d6cbb9;
+  --ring: #1058c9;
+  --sky: #72d7fa;
+  --navy: #0a2a6b;
+  --level-csec: #0f4fba;
+  --level-cape: #0a2a6b;
+  --chart-1: #1058c9;
+  --chart-2: #72d7fa;
+  --chart-3: #ffd43b;
+  --chart-4: #0a2a6b;
+  --chart-5: #3fa6ee;
   --radius: 0.75rem;
-  --sidebar: oklch(0.99 0.002 240);
-  --sidebar-foreground: oklch(0.15 0.01 240);
-  /* Updated sidebar primary to match new orange theme */
-  --sidebar-primary: oklch(0.58 0.18 45);
-  --sidebar-primary-foreground: oklch(0.99 0.002 240);
-  --sidebar-accent: oklch(0.96 0.005 240);
-  --sidebar-accent-foreground: oklch(0.15 0.01 240);
-  --sidebar-border: oklch(0.92 0.005 240);
-  --sidebar-ring: oklch(0.58 0.18 45);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0a1f44;
+  --sidebar-primary: #1058c9;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f6eee2;
+  --sidebar-accent-foreground: #0a1f44;
+  --sidebar-border: #eadfcf;
+  --sidebar-ring: #1058c9;
 }
 
 .dark {
@@ -105,6 +107,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sky: var(--sky);
+  --color-navy: var(--navy);
+  --color-primary-strong: var(--primary-strong);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
