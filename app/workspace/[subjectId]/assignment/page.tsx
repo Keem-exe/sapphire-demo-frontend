@@ -26,6 +26,20 @@ interface Assignment {
   eventId?: number | string
 }
 
+// SAMPLE: assignment shown to accounts without a backend session, so the screen looks like the design.
+const SAMPLE_ASSIGNMENT: Assignment = {
+  title: "Quadratics practice",
+  instructions: "Answer every question. Show all working: method marks are awarded even if the final answer is wrong.",
+  estimatedMinutes: 25,
+  topics: ["Quadratic Equations"],
+  questions: [
+    { number: 1, prompt: "Solve the equation 3x² − 5x − 2 = 0.", marks: 3, markScheme: "M1 factorise: (3x + 1)(x − 2) = 0\nA1 x = −1/3\nA1 x = 2" },
+    { number: 2, prompt: "Express 2x² + 8x + 3 in the form a(x + h)² + k.", marks: 4, markScheme: "M1 take out 2: 2(x² + 4x) + 3\nM1 complete the square: 2[(x + 2)² − 4] + 3\nA2 2(x + 2)² − 5" },
+    { number: 3, prompt: "Using your answer to Question 2, state the minimum value of 2x² + 8x + 3 and the value of x at which it occurs.", marks: 2, markScheme: "B1 minimum value −5\nB1 when x = −2" },
+    { number: 4, prompt: "The length of a rectangle is 3 cm more than its width. Its area is 40 cm². Find the width.", marks: 4, markScheme: "M1 x(x + 3) = 40\nM1 x² + 3x − 40 = 0\nM1 (x + 8)(x − 5) = 0\nA1 width = 5 cm (reject −8)" },
+  ],
+}
+
 export default function AssignmentPage() {
   const params = useParams()
   const subjectId = params.subjectId as SubjectId
@@ -47,7 +61,8 @@ export default function AssignmentPage() {
     setAssignment(null)
     setShowSchemes(false)
     if (!hasAuthToken()) {
-      setErr("Assignments need a Sapphire account. Please sign in with a registered account.")
+      // No backend session (demo account): show the sample assignment
+      setAssignment(SAMPLE_ASSIGNMENT)
       return
     }
     setLoading(true)

@@ -42,6 +42,24 @@ type Flashcard = {
   difficulty: "easy" | "medium" | "hard";
 };
 
+// SAMPLE: cards shown when there is no backend session and no Gemini key, so the screen can still be tried.
+const sample = (n: number, front: string, back: string, topic: string): Flashcard => ({
+  id: `sample-${n}`,
+  front,
+  back,
+  topic,
+  subjectId: "csec-math",
+  difficulty: "medium",
+})
+const SAMPLE_CARDS: Flashcard[] = [
+  sample(1, "What does the discriminant b² − 4ac tell you?", "How many real roots a quadratic has: positive gives two, zero gives one, negative gives none.", "Algebra"),
+  sample(2, "Factorise completely: 3x² − 12x", "3x(x − 4). Take out every common factor, including the x.", "Factorising"),
+  sample(3, "State the quadratic formula.", "x = (−b ± √(b² − 4ac)) / 2a", "Algebra"),
+  sample(4, "Simplify a⁵ × a³", "a⁸. When you multiply powers of the same base, add the indices.", "Indices"),
+  sample(5, "What is the mean of 4, 7, 9 and 8?", "7. Add the values (28) and divide by how many there are (4).", "Statistics"),
+  sample(6, "Expand (x + 3)²", "x² + 6x + 9. Square the first term, double the product, square the last term.", "Algebra"),
+]
+
 // The four ratings map onto the existing mastered / review-later data:
 // Good and Easy count as mastered, Again and Hard do not. Intervals are illustrative.
 const GRADES = [
@@ -258,7 +276,16 @@ export default function FlashcardsPage() {
       setMasteredCards(new Set());
       setReviewedCards(new Set());
     } catch (e: any) {
-      setErr(e.message || "Something went wrong");
+      if (!hasAuthToken()) {
+        // Demo account without an AI key: fall back to the sample cards
+        setCards(SAMPLE_CARDS);
+        setErr(null);
+        setSessionStartTime(Date.now());
+        setMasteredCards(new Set());
+        setReviewedCards(new Set());
+      } else {
+        setErr(e.message || "Something went wrong");
+      }
     } finally {
       setLoading(false);
     }

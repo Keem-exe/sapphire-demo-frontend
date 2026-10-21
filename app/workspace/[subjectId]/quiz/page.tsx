@@ -64,6 +64,15 @@ const normalizeSubjectId = (id: string): SubjectId => {
   return (map[id] || id) as SubjectId;
 };
 
+// SAMPLE: questions shown when there is no backend session and no Gemini key, so the quiz screens
+// can still be tried. Real accounts always use the backend questions.
+const SAMPLE_QUESTIONS: Question[] = [
+  { id: "s1", question: "Solve 2x² − 8 = 0.", options: ["x = 4", "x = ±2", "x = ±4", "x = 2"], answer: "x = ±2", topic: "Algebra", difficulty: "medium", type: "MCQ" },
+  { id: "s2", question: "The mean of 4, 7, 9 and x is 7. What is x?", options: ["6", "7", "8", "9"], answer: "8", topic: "Statistics", difficulty: "medium", type: "MCQ" },
+  { id: "s3", question: "Factorise completely: 3x² − 12x.", options: ["3(x² − 4x)", "x(3x − 12)", "3x(x − 4)", "3x(x + 4)"], answer: "3x(x − 4)", topic: "Algebra", difficulty: "medium", type: "MCQ" },
+  { id: "s4", question: "Which value is the median of 3, 8, 5, 12, 6?", options: ["5", "6", "8", "6.8"], answer: "6", topic: "Statistics", difficulty: "medium", type: "MCQ" },
+]
+
 export default function QuizPage() {
   const params = useParams();
   const router = useRouter();
@@ -177,7 +186,13 @@ export default function QuizPage() {
         setQuestions(json.questions || []);
       }
     } catch (e: any) {
-      setErr(e.message);
+      if (!hasAuthToken()) {
+        // Demo account without an AI key: fall back to the sample questions
+        setQuestions(SAMPLE_QUESTIONS);
+        setErr(null);
+      } else {
+        setErr(e.message);
+      }
     } finally {
       setLoading(false);
     }

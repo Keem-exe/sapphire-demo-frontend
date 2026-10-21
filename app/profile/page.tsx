@@ -36,6 +36,36 @@ import {
 } from "lucide-react"
 import { LearningDashboard } from '@/components/learning/LearningDashboard'
 
+// SAMPLE: shown for the demo account (user_id 999), which has no backend data, so the page looks
+// like the design. Real accounts always show their own analytics, history and alerts.
+const DEMO_USER_ID = 999
+const DEMO_ANALYTICS = {
+  quiz_performance: { total_quizzes: 14, average_score: 74 },
+  flashcard_performance: { total_sessions: 9, average_recall: 0.68 },
+  current_streak: 6,
+  total_study_time: 312,
+  topic_mastery: [
+    { topic: "Statistics", subject_id: "csec-math", confidence_score: 86, practice_count: 9 },
+    { topic: "Sets", subject_id: "csec-math", confidence_score: 72, practice_count: 6 },
+    { topic: "Number theory", subject_id: "csec-math", confidence_score: 64, practice_count: 7 },
+    { topic: "Algebra", subject_id: "csec-math", confidence_score: 51, practice_count: 11 },
+    { topic: "Factorising", subject_id: "csec-math", confidence_score: 38, practice_count: 4 },
+  ],
+  knowledge_gaps: ["Factorising"],
+}
+const DEMO_QUIZ_HISTORY = [
+  { subjectId: "csec-math", topic: "Algebra", completedAt: "2026-10-14", score: 80 },
+  { subjectId: "csec-math", topic: "Statistics", completedAt: "2026-10-13", score: 90 },
+  { subjectId: "csec-math", topic: "Factorising", completedAt: "2026-10-10", score: 45 },
+  { subjectId: "csec-math", topic: "Sets", completedAt: "2026-10-08", score: 70 },
+]
+const DEMO_RISK_ALERT = {
+  level: "medium",
+  title: "Factorising needs attention",
+  reason: "Your last three Algebra quizzes averaged 48% on factorising. Try a 10-card flashcard drill on it this week.",
+  intervention_suggestions: [] as string[],
+}
+
 export default function ProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
@@ -46,6 +76,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(false)
   const { recommendation } = useNextContent(user?.id || null, undefined)
+  const isDemo = user?.user_id === DEMO_USER_ID
 
   useEffect(() => {
     if (!user) {
@@ -57,10 +88,17 @@ export default function ProfilePage() {
     const loadData = async () => {
       try {
         setIsLoading(true)
-        const analyticsData = analyticsService.getAnalytics(user.user_id)
+        const analyticsData = isDemo ? DEMO_ANALYTICS : analyticsService.getAnalytics(user.user_id)
         const intelligenceData = intelligenceEngine.getLearningIntelligence(user.user_id, "csec-math")
         setAnalytics(analyticsData)
-        setIntelligence(intelligenceData)
+        setIntelligence(
+          isDemo
+            ? {
+                ...intelligenceData,
+                personalized_actions: { ...intelligenceData?.personalized_actions, risk_alerts: DEMO_RISK_ALERT },
+              }
+            : intelligenceData,
+        )
 
         // Render profile immediately; history can hydrate after first paint.
         setIsLoading(false)
@@ -70,10 +108,11 @@ export default function ProfilePage() {
           quizHistoryService.getQuizHistory(user.user_id, 20),
           quizHistoryService.getFlashcardHistory(user.user_id, 20),
         ])
-        setQuizHistory(quizData)
+        setQuizHistory(isDemo && !quizData.length ? DEMO_QUIZ_HISTORY : quizData)
         setFlashcardHistory(flashcardData)
       } catch (error) {
         console.error("Failed to load profile data:", error)
+        if (isDemo) setQuizHistory(DEMO_QUIZ_HISTORY)
       } finally {
         setHistoryLoading(false)
         setIsLoading(false)
@@ -86,6 +125,11 @@ export default function ProfilePage() {
   if (!user) {
     return null
   }
+
+  // The demo account has no level on the user record, so use the one picked on the level screen
+  const levelKey = String(
+    user.level || (typeof window !== "undefined" ? localStorage.getItem("selectedLevel") : "") || "csec",
+  ).toLowerCase()
 
   if (isLoading) {
     return (
@@ -200,7 +244,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <p className="text-muted-foreground">Level</p>
-                <p className="font-semibold">{user.level}</p>
+                <p className="font-semibold">{levelKey.toUpperCase()}</p>
               </div>
             </div>
             <div>
@@ -290,7 +334,7 @@ export default function ProfilePage() {
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
             <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
               <b className="font-semibold">
-                Learning alert{" "}
+                {intelligence.personalized_actions.risk_alerts.title ?? "Learning alert"}{" "}
                 <Badge variant={getRiskBadgeColor(intelligence.personalized_actions.risk_alerts.level)} className="ml-1 align-middle">
                   {intelligence.personalized_actions.risk_alerts.level.toUpperCase()} RISK
                 </Badge>
@@ -304,7 +348,7 @@ export default function ProfilePage() {
                 </ul>
               ) : null}
             </div>
-            <Button variant="outline" size="sm" className="min-h-11 shadow-none" onClick={() => router.push(`/workspace/${user.level}-math/flashcards`)}>
+            <Button variant="outline" size="sm" className="min-h-11 shadow-none" onClick={() => router.push(`/workspace/${levelKey}-math/flashcards`)}>
               Start drill
             </Button>
           </div>
@@ -618,10 +662,10 @@ export default function ProfilePage() {
                             {intelligence.personalized_actions.content_recommendations.next_study_suggestion.reason}
                           </p>
                           <div className="flex gap-2 mt-3">
-                            <Button size="sm" onClick={() => router.push(`/workspace/${user.level}-math/quiz`)}>
+                            <Button size="sm" onClick={() => router.push(`/workspace/${levelKey}-math/quiz`)}>
                               Take Quiz
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => router.push(`/workspace/${user.level}-math/flashcards`)}>
+                            <Button size="sm" variant="outline" onClick={() => router.push(`/workspace/${levelKey}-math/flashcards`)}>
                               Practice Flashcards
                             </Button>
                           </div>
