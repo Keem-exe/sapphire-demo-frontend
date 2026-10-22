@@ -95,12 +95,13 @@ export class ApiClient {
   private async fetchWithRetry(url: string, options: RequestInit, retried = false): Promise<Response> {
     const res = await fetch(url, { ...options, headers: this.getAuthHeaders() });
 
-    if (res.status === 401 && !retried) {
-      const refreshed = await this.tryRefreshToken();
+    if (res.status === 401) {
+      const refreshed = !retried && (await this.tryRefreshToken());
       if (refreshed) {
         return this.fetchWithRetry(url, options, true);
       }
-      // Refresh failed — clear tokens so the next request doesn't loop
+      // Refresh failed, or the retry was still rejected (e.g. suspended user's tokens are revoked
+      // server-side) — clear tokens so the next request doesn't loop
       if (typeof window !== 'undefined') {
         // Demo user has no token; only a real session that lapsed should be signed out
         const hadSession = !!localStorage.getItem('authToken');

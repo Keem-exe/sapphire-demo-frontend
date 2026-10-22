@@ -24,6 +24,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
 import { hasAuthToken, resolveBackendSubject, fetchBackendTopics, type BackendTopic } from "@/lib/services/backend-subject-map"
+import { groupTopics } from "@/lib/services/subject-topics"
 
 type ReelItem = {
   id: number // backend reel id: used for view/like/save
@@ -81,7 +82,7 @@ const SUBJECT_ALIASES: Record<string, SubjectId> = {
   "cape-biology": "cape-bio",
 }
 
-const ALL_TOPICS = "All topics"
+const ALL_TOPICS = "all"
 
 function normalizeSubjectId(id: string): SubjectId {
   const normalized = String(id || "").trim().toLowerCase()
@@ -141,7 +142,6 @@ export default function ReelsPage() {
   const [isMuted, setIsMuted] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [availableTopics, setAvailableTopics] = useState<string[]>(subject.topics)
   const [likedReels, setLikedReels] = useState<Set<number>>(new Set())
   const [savedReels, setSavedReels] = useState<Set<number>>(new Set())
   const [backendSubjectId, setBackendSubjectId] = useState<number | null>(null)
@@ -163,7 +163,6 @@ export default function ReelsPage() {
 
   useEffect(() => {
     setSelectedTopic(ALL_TOPICS)
-    setAvailableTopics(subject.topics)
     setCurrentReelIndex(0)
     setIsPlaying(true)
     setBackendSubjectId(null)
@@ -181,7 +180,6 @@ export default function ReelsPage() {
         if (cancelled) return
         setBackendSubjectId(bs.subjectId)
         setBackendTopics(topics)
-        setAvailableTopics(topics.length ? topics.map((t) => t.name) : subject.topics)
       })
       .catch((e: any) => {
         if (cancelled) return
@@ -210,7 +208,7 @@ export default function ReelsPage() {
       setPage(1)
 
       try {
-        const topic = backendTopics.find((t) => t.name === selectedTopic)
+        const topic = backendTopics.find((t) => String(t.id) === selectedTopic)
         const response: any = showSaved
           ? await apiClient.get(`/api/reels/saved`)
           : await apiClient.get(`/api/subject/${backendSubjectId}/reels`, {
@@ -250,7 +248,7 @@ export default function ReelsPage() {
     if (backendSubjectId == null || loadingMore) return
     setLoadingMore(true)
     try {
-      const topic = backendTopics.find((t) => t.name === selectedTopic)
+      const topic = backendTopics.find((t) => String(t.id) === selectedTopic)
       const next = page + 1
       const response: any = await apiClient.get(`/api/subject/${backendSubjectId}/reels`, {
         topicId: selectedTopic !== ALL_TOPICS ? topic?.id : undefined,
@@ -394,7 +392,8 @@ export default function ReelsPage() {
     return <div className="p-6">Unknown subject.</div>
   }
 
-  const topicButtons = [ALL_TOPICS, ...availableTopics]
+  const topicGroups = groupTopics(backendTopics)
+  const topicCount = backendTopics.length
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10">
@@ -459,7 +458,7 @@ export default function ReelsPage() {
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30 px-6 text-center">
                       <div>
                         <p className="text-white font-semibold">Loading reels</p>
-                        <p className="text-sm text-white/70 mt-2">Fetching YouTube videos for {selectedTopic === ALL_TOPICS ? subject.name : selectedTopic}.</p>
+                        <p className="text-sm text-white/70 mt-2">Fetching YouTube videos for {selectedTopic === ALL_TOPICS ? subject.name : backendTopics.find((t) => String(t.id) === selectedTopic)?.name ?? subject.name}.</p>
                       </div>
                     </div>
                   ) : null}
@@ -598,7 +597,7 @@ export default function ReelsPage() {
                       <h3 className="text-lg font-semibold text-foreground">Filter Topics</h3>
                       <p className="text-xs text-muted-foreground">Pull reels for the exact topic you want.</p>
                     </div>
-                    <Badge variant="secondary">{subject.topics.length}</Badge>
+                    <Badge variant="secondary">{topicCount}</Badge>
                   </div>
                   <div className="flex gap-2 mb-3">
                     <Button
@@ -619,18 +618,34 @@ export default function ReelsPage() {
                       Saved
                     </Button>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {topicButtons.map((topic) => (
-                      <Button
-                        key={topic}
-                        variant={selectedTopic === topic ? "default" : "outline"}
-                        size="sm"
-                        className="rounded-full"
-                        disabled={showSaved}
-                        onClick={() => setSelectedTopic(topic)}
-                      >
-                        {topic}
-                      </Button>
+                  <div className="space-y-3">
+                    <Button
+                      variant={selectedTopic === ALL_TOPICS ? "default" : "outline"}
+                      size="sm"
+                      className="rounded-full"
+                      disabled={showSaved}
+                      onClick={() => setSelectedTopic(ALL_TOPICS)}
+                    >
+                      All topics
+                    </Button>
+                    {topicGroups.map((g) => (
+                      <div key={g.moduleNumber ?? "flat"} className="space-y-2">
+                        {g.title && <p className="text-xs font-semibold text-muted-foreground">{g.title}</p>}
+                        <div className="flex flex-wrap gap-2">
+                          {g.topics.map((t) => (
+                            <Button
+                              key={t.key}
+                              variant={selectedTopic === t.key ? "default" : "outline"}
+                              size="sm"
+                              className="rounded-full"
+                              disabled={showSaved}
+                              onClick={() => setSelectedTopic(t.key)}
+                            >
+                              {t.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </CardContent>

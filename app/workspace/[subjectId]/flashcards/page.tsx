@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
 import { apiClient } from "@/lib/api-client";
 import { AiRating } from "@/components/feedback/ai-rating";
-import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
+import { hasAuthToken, resolveBackendSubject } from "@/lib/services/backend-subject-map";
+import { useSubjectTopics } from "@/lib/services/subject-topics";
+import { TopicPicker } from "@/components/workspace/topic-picker";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy } from "lucide-react";
 
@@ -74,6 +76,10 @@ export default function FlashcardsPage() {
     durationSeconds: number;
   } | null>(null);
 
+  const topicState = useSubjectTopics(canonicalId);
+  const topicLabel = (key: string) =>
+    topicState.groups.flatMap((g) => g.topics).find((t) => t.key === key)?.label ?? key;
+
   if (!subject) return <div className="p-6">Unknown subject.</div>;
 
   // Post-practice summary screen
@@ -120,11 +126,12 @@ export default function FlashcardsPage() {
       setPracticeResult(null);
 
       if (hasAuthToken()) {
-        const selectedTopics = topics.length ? topics : subject.topics.slice(0, 3);
-        const { subjectId: backendSubjectId, topicIds } = await resolveBackendSubjectContext(
-          canonicalId,
-          selectedTopics
-        );
+        const allKeys = topicState.groups.flatMap((g) => g.topics.map((t) => t.key));
+        const selectedKeys = topics.length ? topics : allKeys.slice(0, 3);
+        if (!selectedKeys.length) throw new Error("Pick at least one topic.");
+        const backendSubjectId = topicState.backendSubjectId ?? (await resolveBackendSubject(canonicalId)).subjectId;
+        const topicIds = selectedKeys.map(Number);
+        const selectedTopics = [topicLabel(selectedKeys[0])];
 
         const response: any = await apiClient.post("/api/ai/flashcards", {
           subjectId: backendSubjectId,
@@ -266,14 +273,13 @@ const handleEndSession = async () => {
 
       <div className="space-y-3">
         <Label className="font-medium">Select topics</Label>
-        <div className="grid grid-cols-2 gap-4 text-lg">
-          {subject.topics.map((t) => (
-            <label key={t} className="flex items-center gap-3">
-              <Checkbox checked={topics.includes(t)} onCheckedChange={() => toggle(t)} />
-              <span>{t}</span>
-            </label>
-          ))}
-        </div>
+        <TopicPicker
+          groups={topicState.groups}
+          selected={topics}
+          onToggle={toggle}
+          loading={topicState.loading}
+          error={topicState.error}
+        />
 
         <div className="flex items-center gap-4 pt-2">
           <Label htmlFor="count">Count</Label>

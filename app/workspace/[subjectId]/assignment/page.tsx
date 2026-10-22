@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AiRating } from "@/components/feedback/ai-rating"
 import { apiClient } from "@/lib/api-client"
-import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map"
+import { hasAuthToken, resolveBackendSubject } from "@/lib/services/backend-subject-map"
+import { useSubjectTopics } from "@/lib/services/subject-topics"
+import { TopicPicker } from "@/components/workspace/topic-picker"
 
 interface Assignment {
   title: string
@@ -33,6 +35,7 @@ export default function AssignmentPage() {
   const [err, setErr] = useState<string | null>(null)
   const [assignment, setAssignment] = useState<Assignment | null>(null)
   const [showSchemes, setShowSchemes] = useState(false)
+  const topicState = useSubjectTopics(subjectId)
 
   if (!subject) return <div className="p-6">Unknown subject.</div>
 
@@ -48,8 +51,11 @@ export default function AssignmentPage() {
     }
     setLoading(true)
     try {
-      const picked = topics.length ? topics : subject.topics.slice(0, 1)
-      const { subjectId: backendSubjectId, topicIds } = await resolveBackendSubjectContext(subjectId, picked)
+      const firstKey = topicState.groups[0]?.topics[0]?.key
+      const picked = topics.length ? topics : firstKey ? [firstKey] : []
+      if (!picked.length) throw new Error("Pick at least one topic.")
+      const backendSubjectId = topicState.backendSubjectId ?? (await resolveBackendSubject(subjectId)).subjectId
+      const topicIds = picked.map(Number)
       // Not persisted by the backend: the result only lives in this page's state.
       const res: any = await apiClient.post("/api/ai/assignment", {
         subjectId: backendSubjectId,
@@ -76,14 +82,13 @@ export default function AssignmentPage() {
         <CardContent className="p-4 space-y-4">
           <div className="space-y-2">
             <Label>Topics</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {subject.topics.map((t) => (
-                <label key={t} className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={topics.includes(t)} onCheckedChange={() => toggle(t)} />
-                  {t}
-                </label>
-              ))}
-            </div>
+            <TopicPicker
+              groups={topicState.groups}
+              selected={topics}
+              onToggle={toggle}
+              loading={topicState.loading}
+              error={topicState.error}
+            />
           </div>
           <div className="space-y-2 max-w-[10rem]">
             <Label htmlFor="count">Questions (1–15)</Label>

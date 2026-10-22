@@ -11,6 +11,7 @@ import { NotebookSidebar } from "@/components/workspace/notebook-sidebar"
 import { NoteEditor } from "@/components/workspace/note-editor"
 import { AiChatPanel } from "@/components/workspace/ai-chat-panel"
 import { ToolsPanel } from "@/components/workspace/tools-panel"
+import { SyllabusNotice } from "@/components/workspace/syllabus-notice"
 import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
 
 interface Note {
@@ -198,6 +199,8 @@ export default function WorkspacePage() {
           </div>
         </div>
       </div>
+
+      <SyllabusNotice subjectId={subjectId} />
 
       {/* Subject Dashboard Layout */}
       <div className="flex-1 flex overflow-hidden">

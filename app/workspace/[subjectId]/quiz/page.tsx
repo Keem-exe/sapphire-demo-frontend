@@ -13,7 +13,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
 import { AiRating } from "@/components/feedback/ai-rating";
-import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backend-subject-map";
+import { hasAuthToken, resolveBackendSubject } from "@/lib/services/backend-subject-map";
+import { useSubjectTopics } from "@/lib/services/subject-topics";
+import { TopicPicker } from "@/components/workspace/topic-picker";
 import { CheckCircle2, XCircle, Trophy, AlertTriangle } from "lucide-react";
 
 type Question = {
@@ -94,11 +96,14 @@ export default function QuizPage() {
   const [difficulty, setDifficulty] = useState("medium");
   const [types, setTypes] = useState<string[]>(["MCQ"]);
 
+  const topicState = useSubjectTopics(subjectId);
+  const firstTopicKey = topicState.groups[0]?.topics[0]?.key;
+  const topicLabel = (key: string) =>
+    topicState.groups.flatMap((g) => g.topics).find((t) => t.key === key)?.label ?? key;
+
   useEffect(() => {
-    if (subject && subject.topics.length > 0) {
-      setTopics([subject.topics[0]]);
-    }
-  }, [subjectId]);
+    setTopics(firstTopicKey ? [firstTopicKey] : []);
+  }, [subjectId, firstTopicKey]);
 
   const toggle = (list: string[], setList: (v: string[]) => void, item: string) =>
     setList(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
@@ -117,10 +122,9 @@ export default function QuizPage() {
 
     try {
       if (hasAuthToken()) {
-        const { subjectId: backendSubjectId, topicIds } = await resolveBackendSubjectContext(
-          subjectId,
-          topics.length ? topics : subject.topics.slice(0, 1)
-        );
+        const backendSubjectId = topicState.backendSubjectId ?? (await resolveBackendSubject(subjectId)).subjectId;
+        const topicIds = (topics.length ? topics : firstTopicKey ? [firstTopicKey] : []).map(Number);
+        if (!topicIds.length) throw new Error("Pick at least one topic.");
 
         const response: any = await apiClient.post("/api/ai/quiz", {
           subjectId: backendSubjectId,
@@ -144,7 +148,7 @@ export default function QuizPage() {
             ? q.options.map((opt: any) => opt?.text ?? opt?.label ?? String(opt))
             : [],
           answer: "",
-          topic: (topics[0] || subject.topics[0] || "General"),
+          topic: topicLabel(topics[0] || firstTopicKey || "") || "General",
           difficulty: (data?.quiz?.difficulty || difficulty).toString(),
           type: q.questionType || "MCQ",
         }));
@@ -270,14 +274,13 @@ export default function QuizPage() {
 
         <div className="space-y-2 text-left">
           <Label>Topics</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {subject.topics.map((t) => (
-              <label key={t} className="flex items-center gap-2">
-                <Checkbox checked={topics.includes(t)} onCheckedChange={() => toggle(topics, setTopics, t)} />
-                <span>{t}</span>
-              </label>
-            ))}
-          </div>
+          <TopicPicker
+            groups={topicState.groups}
+            selected={topics}
+            onToggle={(k) => toggle(topics, setTopics, k)}
+            loading={topicState.loading}
+            error={topicState.error}
+          />
         </div>
 
         <div className="space-y-2 text-left">
