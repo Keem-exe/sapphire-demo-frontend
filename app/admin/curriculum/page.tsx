@@ -3,7 +3,9 @@
 import { useState } from "react"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -100,6 +102,11 @@ function TopicsTab() {
   const { data, loading, error } = useApi<{ topics: Topic[] }>("/api/admin/topics", { subjectId: subjectId === ALL ? undefined : subjectId })
   const [editing, setEditing] = useState<Topic | "new" | null>(null)
   const [deleting, setDeleting] = useState<Topic | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
+  // The backend lists archived topics in id order; hide them by default and show syllabus order
+  const topics = (data?.topics ?? [])
+    .filter((t) => showArchived || !t.isArchived)
+    .sort((a, b) => a.subjectId - b.subjectId || (a.order ?? 0) - (b.order ?? 0) || a.id - b.id)
   const subjectName = (id: number) => subjects.data?.subjects.find((s) => s.id === id)?.name ?? `#${id}`
 
   return (
@@ -112,17 +119,21 @@ function TopicsTab() {
             {subjects.data?.subjects.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={showArchived} onCheckedChange={(v) => setShowArchived(v === true)} /> Show archived
+        </label>
         <Button onClick={() => setEditing("new")}><Plus className="size-4" /> Add topic</Button>
       </div>
       <ErrorNote message={error} />
       <Card className="overflow-hidden p-0">
-        {loading && !data ? <TableSkeleton rows={4} /> : data?.topics.length === 0 ? <EmptyState title="No topics" hint="Add a topic to a subject." /> : (
+        {loading && !data ? <TableSkeleton rows={4} /> : topics.length === 0 ? <EmptyState title="No topics" hint="Add a topic to a subject." /> : (
           <Table>
-            <TableHeader><TableRow><TableHead>Topic</TableHead><TableHead>Subject</TableHead><TableHead>Description</TableHead><TableHead className="w-24" /></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Topic</TableHead><TableHead>Module</TableHead><TableHead>Subject</TableHead><TableHead>Description</TableHead><TableHead className="w-24" /></TableRow></TableHeader>
             <TableBody>
-              {data?.topics.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.name}</TableCell>
+              {topics.map((t) => (
+                <TableRow key={t.id} className={t.isArchived ? "opacity-60" : undefined}>
+                  <TableCell className="font-medium">{t.name}{t.isArchived && <Badge variant="outline" className="ml-2">Archived</Badge>}</TableCell>
+                  <TableCell className="text-muted-foreground">{t.moduleNumber != null ? `${t.moduleNumber}${t.moduleTitle ? `. ${t.moduleTitle}` : ""}` : "—"}</TableCell>
                   <TableCell>{subjectName(t.subjectId)}</TableCell>
                   <TableCell className="max-w-sm truncate text-muted-foreground">{t.description || "—"}</TableCell>
                   <TableCell>
