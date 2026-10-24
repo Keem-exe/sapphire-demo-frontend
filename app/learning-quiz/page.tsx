@@ -116,17 +116,17 @@ const LEARNING_STYLES = {
 
 export default function LearningQuizPage() {
   const router = useRouter()
-  const { user, updateUserLevel } = useAuth()
+  const { user, isLoading: authLoading, updateUserLevel } = useAuth()
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [showResults, setShowResults] = useState(false)
   const [learningStyle, setLearningStyle] = useState<keyof typeof LEARNING_STYLES | null>(null)
 
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       router.push("/")
     }
-  }, [user, router])
+  }, [user, authLoading, router])
 
   const handleAnswer = (value: string) => {
     setAnswers({ ...answers, [currentQuestion]: value })

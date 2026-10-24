@@ -144,7 +144,7 @@ export default function DashboardPage() {
     { id: "reel", label: "Watch one study reel", done: false },
     { id: "flash", label: "Run one flashcard drill", done: false },
   ])
-  const { user, logout } = useAuth()
+  const { user, isLoading: authLoading, logout } = useAuth()
 
   const [csecSubjects, setCsecSubjects] = useState(() => {
     if (typeof window !== "undefined") {
@@ -175,6 +175,8 @@ export default function DashboardPage() {
   }, [capeSubjects])
 
   useEffect(() => {
+    // user is null until AuthProvider has read localStorage; redirecting before then logs everyone out on reload
+    if (authLoading) return
     if (!user) {
       router.push("/")
       return
@@ -187,7 +189,7 @@ export default function DashboardPage() {
       setSelectedLevel(level)
       setTimeout(() => setIsBooting(false), 250)
     }
-  }, [router, user])
+  }, [router, user, authLoading])
 
   const handleAddSubject = (newSubject: any) => {
     if (selectedLevel === "csec") {
@@ -317,7 +319,7 @@ export default function DashboardPage() {
                   className="text-primary border-primary/20 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/70 min-h-11"
                 >
                   <ShieldCheck className="w-4 h-4 mr-2" />
-                  Admin
+                  Admin console
                 </Button>
               )}
               <Button

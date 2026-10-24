@@ -35,7 +35,7 @@ import {
 import { LearningDashboard } from '@/components/learning/LearningDashboard'
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const [analytics, setAnalytics] = useState<any>(null)
   const [intelligence, setIntelligence] = useState<any>(null)
@@ -46,6 +46,7 @@ export default function ProfilePage() {
   const { recommendation } = useNextContent(user?.id || null, undefined)
 
   useEffect(() => {
+    if (authLoading) return
     if (!user) {
       router.push("/")
       return
@@ -79,7 +80,7 @@ export default function ProfilePage() {
     }
 
     loadData()
-  }, [user, router])
+  }, [user, authLoading, router])
 
   if (!user) {
     return null
