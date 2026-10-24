@@ -10,6 +10,7 @@ import {
   BookOpen,
   Brain,
   ClipboardCheck,
+  MessagesSquare,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -28,13 +29,14 @@ import { useApi } from "@/lib/admin/use-api"
 import type { Setting } from "@/lib/admin/types"
 import { AdminAuthProvider, useAdmin } from "./admin-auth"
 import { openStudentApp } from "@/lib/admin/student-app"
-import { ErrorNote, FormField, OwnerBadge, fullName } from "./common"
+import { ErrorNote, FormField, RoleBadge, fullName } from "./common"
 
 const NAV = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/curriculum", label: "Curriculum", icon: BookOpen },
   { href: "/admin/questions", label: "Question Bank", icon: ClipboardCheck },
+  { href: "/admin/dialogues", label: "Dialogues", icon: MessagesSquare },
   { href: "/admin/upload", label: "Upload Material", icon: Upload },
   { href: "/admin/reels", label: "Reels", icon: Video },
   { href: "/admin/moderation", label: "Content Moderation", icon: ShieldAlert },
@@ -158,7 +160,7 @@ function Frame({ children }: { children: React.ReactNode }) {
           <div className="min-w-0 text-xs">
             <p className="flex items-center gap-1.5 font-medium">
               <span className="truncate">{fullName(user!)}</span>
-              {user!.isSuperAdmin === true && <OwnerBadge className="shrink-0 px-1.5 py-0 text-[10px]" />}
+              <RoleBadge user={user!} className="shrink-0 px-1.5 py-0 text-[10px]" />
             </p>
             <p className="truncate text-muted-foreground">{user!.email}</p>
           </div>
@@ -176,7 +178,7 @@ function Frame({ children }: { children: React.ReactNode }) {
         <main className="mx-auto max-w-7xl p-4 md:p-8">{children}</main>
         <div className="border-t p-3 md:hidden">
           <Button variant="outline" size="sm" onClick={logout}><LogOut className="size-4" /> Sign out ({user!.email})</Button>
-          {user!.isSuperAdmin === true && <OwnerBadge className="ml-2" />}
+          <RoleBadge user={user!} className="ml-2" />
         </div>
       </div>
     </div>

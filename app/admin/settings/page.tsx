@@ -10,6 +10,7 @@ import { api } from "@/lib/admin/api"
 import { mutate } from "@/lib/admin/mutate"
 import type { Setting } from "@/lib/admin/types"
 import { useApi } from "@/lib/admin/use-api"
+import { AiRoutingCard } from "@/components/admin/ai-routing"
 import { useAdmin } from "@/components/admin/admin-auth"
 import { ConfirmDialog, ErrorNote, PageHeader, fmtDate } from "@/components/admin/common"
 
@@ -20,7 +21,7 @@ const LABELS: Record<string, string> = {
 }
 
 export default function SettingsPage() {
-  const { isOwner } = useAdmin()
+  const { isGlobalAdmin } = useAdmin()
   const { data, loading, error } = useApi<{ settings: Setting[] }>("/api/admin/settings")
   const [pending, setPending] = useState<string | null>(null)
   const [confirmMaintenance, setConfirmMaintenance] = useState(false)
@@ -39,9 +40,9 @@ export default function SettingsPage() {
     <>
       <PageHeader title="Settings" description="Platform-wide toggles. Changes take effect immediately." />
       <ErrorNote message={error} />
-      {!isOwner && (
+      {!isGlobalAdmin && (
         <p className="mb-3 max-w-2xl rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-          Platform settings are read-only. Only the owner account can change them.
+          Platform settings are read-only. Only a global admin can change them.
         </p>
       )}
       <div className="max-w-2xl space-y-3">
@@ -66,7 +67,7 @@ export default function SettingsPage() {
               </div>
               <Switch
                 checked={s.value}
-                disabled={!isOwner || pending === s.key}
+                disabled={!isGlobalAdmin || pending === s.key}
                 aria-label={LABELS[s.key]}
                 onCheckedChange={(v) => (s.key === "maintenance_mode" && v ? setConfirmMaintenance(true) : update(s.key, v))}
               />
@@ -74,6 +75,7 @@ export default function SettingsPage() {
           </Card>
         ))}
       </div>
+      <div className="mt-6"><AiRoutingCard /></div>
       <ConfirmDialog
         open={confirmMaintenance}
         onOpenChange={setConfirmMaintenance}

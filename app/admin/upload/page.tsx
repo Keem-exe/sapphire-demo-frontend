@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, CheckCircle2, Clock, FileUp, Loader2, X } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Clock, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,31 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { api, AdminApiError, type Page } from "@/lib/admin/api"
 import { invalidate, useApi } from "@/lib/admin/use-api"
 import type { IngestSubject, MaterialRecord, MaterialSource, SkippedFile, UploadResult } from "@/lib/admin/types"
+import { FileDropzone } from "@/components/admin/file-dropzone"
 import { EmptyState, ErrorNote, FormField, PageHeader, Pager, TableSkeleton, fmtDate } from "@/components/admin/common"
-import { cn } from "@/lib/utils"
 
 const MAX_FILES = 10
-const MAX_BYTES = 20 * 1024 * 1024
 const ACCEPT = [".docx", ".pdf", ".png", ".jpg", ".jpeg", ".webp"]
 const FAST_MS = 3000
 const SLOW_MS = 8000
 const SLOW_AFTER_MS = 60_000
 
-const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MB`
-const extOf = (name: string) => name.slice(name.lastIndexOf(".")).toLowerCase()
 const isActive = (m: MaterialRecord) => m.ingestStatus === "queued" || m.ingestStatus === "processing"
 const rowsOf = (d: unknown): MaterialRecord[] => {
   const x = d as { items?: MaterialRecord[]; materials?: MaterialRecord[] } | MaterialRecord[] | undefined
   return Array.isArray(x) ? x : x?.items ?? x?.materials ?? []
-}
-
-function checkFile(f: File): string | null {
-  const ext = extOf(f.name)
-  if (ext === ".doc") return "Old .doc files are not supported. Re-save as .docx."
-  if (!ACCEPT.includes(ext)) return `Unsupported type ${ext || "(none)"}. Use ${ACCEPT.join(", ")}.`
-  if (f.size > MAX_BYTES) return `Too large (${mb(f.size)}). Limit is 20 MB per file.`
-  if (f.size === 0) return "File is empty."
-  return null
 }
 
 export default function UploadPage() {
@@ -42,27 +30,10 @@ export default function UploadPage() {
   const [subjectId, setSubjectId] = useState<string>()
   const [source, setSource] = useState<MaterialSource>("teacher")
   const [files, setFiles] = useState<File[]>([])
-  const [rejected, setRejected] = useState<{ name: string; reason: string }[]>([])
-  const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const [skipped, setSkipped] = useState<SkippedFile[]>([])
   const [tracked, setTracked] = useState<number[]>([])
-  const input = useRef<HTMLInputElement>(null)
-
-  const addFiles = (incoming: FileList | File[]) => {
-    const bad: { name: string; reason: string }[] = []
-    const next = [...files]
-    for (const f of Array.from(incoming)) {
-      const reason = checkFile(f)
-      if (reason) bad.push({ name: f.name, reason })
-      else if (next.some((x) => x.name === f.name && x.size === f.size)) continue
-      else if (next.length >= MAX_FILES) bad.push({ name: f.name, reason: `Only ${MAX_FILES} files per upload.` })
-      else next.push(f)
-    }
-    setFiles(next)
-    setRejected(bad)
-  }
 
   const submit = async () => {
     if (!subjectId || files.length === 0) return
@@ -78,7 +49,6 @@ export default function UploadPage() {
       setSkipped(res.data.skipped ?? [])
       setTracked(res.data.materials.map((m) => m.id))
       setFiles([])
-      setRejected([])
       invalidate()
     } catch (e) {
       const err = e as AdminApiError
@@ -125,55 +95,14 @@ export default function UploadPage() {
               </Select>
             </FormField>
 
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Choose files to upload"
-              onClick={() => input.current?.click()}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), input.current?.click())}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }}
-              className={cn(
-                "flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70",
-                dragging ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50",
-              )}
-            >
-              <FileUp className="size-6 text-muted-foreground" />
-              <p className="text-sm font-medium">Drop files here or click to browse</p>
-              <p className="text-xs text-muted-foreground">.docx, .pdf, .png, .jpg, .webp · up to {MAX_FILES} files, 20 MB each</p>
-              <input
-                ref={input}
-                type="file"
-                multiple
-                hidden
-                accept={ACCEPT.join(",")}
-                onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = "" }}
-              />
-            </div>
-
-            {rejected.length > 0 && (
-              <ul className="space-y-1 text-sm text-destructive">
-                {rejected.map((r, i) => (
-                  <li key={i} className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span><b>{r.name}</b>: {r.reason}</span></li>
-                ))}
-              </ul>
-            )}
-
-            {files.length > 0 && (
-              <ul className="divide-y rounded-md border text-sm">
-                {files.map((f) => (
-                  <li key={`${f.name}-${f.size}`} className="flex items-center gap-2 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                    <span className="text-xs text-muted-foreground">{mb(f.size)}</span>
-                    <Button variant="ghost" size="icon" className="size-7" aria-label={`Remove ${f.name}`} disabled={busy}
-                      onClick={() => setFiles(files.filter((x) => x !== f))}>
-                      <X className="size-4" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <FileDropzone
+              files={files}
+              onChange={setFiles}
+              accept={ACCEPT}
+              maxFiles={MAX_FILES}
+              disabled={busy}
+              typeHint={(ext) => (ext === ".doc" ? "Old .doc files are not supported. Re-save as .docx." : undefined)}
+            />
 
             <ErrorNote message={error} />
             <Button className="w-full" disabled={busy || !subjectId || files.length === 0} onClick={submit}>

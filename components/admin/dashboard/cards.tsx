@@ -344,6 +344,22 @@ export function AiDetails({ open, onOpenChange }: { open: boolean; onOpenChange:
                 <Metric label="Helpful %" value={pct(d.ratings.helpfulPercent, 1)} />
               </div>
             </Section>
+            {d.byProvider?.length > 0 && (
+              <Section title="Model comparison">
+                <NamedTable
+                  rows={d.byProvider}
+                  cols={[
+                    { head: "Model", render: (r) => (r.provider === "local" ? "Our model" : "Gemini") },
+                    { head: "Responses", render: (r) => num(r.count) },
+                    { head: "Fallbacks", render: (r) => num(r.fallbacks) },
+                    { head: "Rated", render: (r) => num(r.rated) },
+                    { head: "👍", render: (r) => num(r.helpful) },
+                    { head: "👎", render: (r) => num(r.unhelpful) },
+                    { head: "Helpful %", render: (r) => (r.rated > 0 ? pct(r.helpfulPercent, 1) : "—") },
+                  ]}
+                />
+              </Section>
+            )}
             <Section title="Usage per student"><BarList rows={d.perStudent.map((t: any) => ({ key: t.userId, label: student(t), value: t.count }))} format={(n) => String(n)} /></Section>
             <Section title="Flagged responses"><EventList rows={d.flaggedResponses} /></Section>
             <Section title="Errors"><EventList rows={d.errors} /></Section>

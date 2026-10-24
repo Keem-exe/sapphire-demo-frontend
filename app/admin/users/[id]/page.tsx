@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { UserDetail } from "@/lib/admin/types"
 import { useApi } from "@/lib/admin/use-api"
-import { EmptyState, ErrorNote, OwnerBadge, RiskBadge, RoleBadge, StatusBadge, fmtDate, fullName } from "@/components/admin/common"
+import { EmptyState, ErrorNote, RiskBadge, RoleBadge, StatusBadge, fmtDate, fullName } from "@/components/admin/common"
 import { UserActions } from "@/components/admin/user-actions"
 
 export default function UserDetailPage() {
@@ -36,8 +36,7 @@ export default function UserDetailPage() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold">{fullName(u)}</h1>
-                  <RoleBadge role={u.accountType} />
-                  {u.isSuperAdmin === true && <OwnerBadge />}
+                  <RoleBadge user={u} />
                   <StatusBadge suspended={u.isSuspended} />
                 </div>
                 <p className="text-muted-foreground">{u.email}</p>

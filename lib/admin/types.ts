@@ -9,7 +9,7 @@ export interface AdminUser {
   age?: number | null
   gender?: string | null
   accountType: AccountType
-  /** Platform owner. Absent until the backend ships it; treat missing as false. */
+  /** Global admin. Absent until the backend ships it; treat missing as false. */
   isSuperAdmin?: boolean
   isSuspended: boolean
   isFirstLogin?: boolean
@@ -197,4 +197,66 @@ export interface MaterialRecord {
   finishedAt?: string | null
   uploadedBy?: number | null
   questionCounts?: { draft: number; approved: number; rejected: number }
+}
+
+// ---- Tutoring dialogues ----
+export type DialogueStatus = "draft" | "approved" | "rejected"
+export type DialogueRole = "tutor" | "student"
+
+export interface DialogueSource {
+  id: number
+  filename: string
+  fileType: string
+  origin: "recording" | "written"
+  ingestStatus: IngestStatus
+  turnCount: number | null
+  dialoguesCreated: number | null
+  redactions?: Record<string, number> | null
+  consentConfirmed: boolean
+  consentNote?: string | null
+  error: string | null
+  createdAt: string
+  finishedAt?: string | null
+  dialogueCounts?: { draft: number; approved: number; rejected: number }
+}
+
+export interface DialogueUploadResult {
+  sources: { id: number; filename: string; fileType: string; ingestStatus: IngestStatus }[]
+  skipped: { filename: string; reason: string; existingSourceId?: number }[]
+}
+
+export interface DialogueTurn {
+  role: DialogueRole
+  text: string
+}
+
+export interface DialogueItem {
+  id: number
+  summary: string | null
+  preview: string | null
+  turnCount: number
+  tutorTurns: number
+  tags: string[]
+  quality: number | null
+  qualityGuess: number | null
+  piiFlags: string[]
+  status: DialogueStatus
+  usableForTraining: boolean
+  excludedFromTraining: boolean
+  sourceFilename: string | null
+  subject: { id: number; name: string } | null
+}
+
+export interface DialogueDetail extends DialogueItem {
+  turns: DialogueTurn[]
+  approvalProblems: string[]
+  reviewNote?: string | null
+}
+
+export interface DialogueSummary {
+  byStatus: Record<DialogueStatus, number>
+  approvedForTraining: number
+  unrated: number
+  flagged: number
+  tags: { good: string[]; bad: string[]; excludedFromTraining: string[]; all: string[] }
 }
