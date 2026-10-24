@@ -9,6 +9,8 @@ export interface AdminUser {
   age?: number | null
   gender?: string | null
   accountType: AccountType
+  /** Platform owner. Absent until the backend ships it; treat missing as false. */
+  isSuperAdmin?: boolean
   isSuspended: boolean
   isFirstLogin?: boolean
   lastLoginAt?: string | null
@@ -148,4 +150,51 @@ export interface BankMaterial {
 export interface BulkReviewResult {
   succeeded: number[]
   failed: { id: number; reason: string; problems?: string[] }[]
+}
+
+// ---- Material upload ----
+export type IngestStatus = "queued" | "processing" | "completed" | "failed"
+export type MaterialSource = "teacher" | "cxc_specimen"
+
+export interface IngestSubject {
+  id: number
+  name: string
+  code: string
+  objectiveCount: number
+  canIngest: boolean
+}
+
+export interface UploadedMaterial {
+  id: number
+  filename: string
+  fileType: string
+  ingestStatus: IngestStatus
+}
+
+export interface SkippedFile {
+  filename: string
+  reason: string
+  existingMaterialId?: number
+}
+
+export interface UploadResult {
+  materials: UploadedMaterial[]
+  skipped: SkippedFile[]
+}
+
+export interface MaterialRecord {
+  id: number
+  subjectId: number
+  filename: string
+  fileType: string
+  ingestStatus: IngestStatus
+  questionsCreated: number | null
+  extractionStatus: "pending" | "extracted" | "needs_vision" | "failed"
+  extractionMethod?: string | null
+  pageCount?: number | null
+  error: string | null
+  createdAt: string
+  finishedAt?: string | null
+  uploadedBy?: number | null
+  questionCounts?: { draft: number; approved: number; rejected: number }
 }

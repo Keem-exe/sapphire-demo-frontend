@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Page } from "@/lib/admin/api"
 import type { AdminUser } from "@/lib/admin/types"
 import { useApi } from "@/lib/admin/use-api"
-import { EmptyState, ErrorNote, PageHeader, Pager, RoleBadge, StatusBadge, TableSkeleton, fmtDate, fmtDay, fullName, useDebounce } from "@/components/admin/common"
+import { EmptyState, ErrorNote, PageHeader, Pager, OwnerBadge, RoleBadge, StatusBadge, TableSkeleton, fmtDate, fmtDay, fullName, useDebounce } from "@/components/admin/common"
 import { UserActions } from "@/components/admin/user-actions"
 
 const ALL = "all"
@@ -75,7 +75,7 @@ export default function UsersPage() {
                 <TableRow key={u.id}>
                   <TableCell><Link href={`/admin/users/${u.id}`} className="font-medium hover:underline">{fullName(u)}</Link></TableCell>
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                  <TableCell><RoleBadge role={u.accountType} /></TableCell>
+                  <TableCell><span className="inline-flex items-center gap-1.5"><RoleBadge role={u.accountType} />{u.isSuperAdmin === true && <OwnerBadge />}</span></TableCell>
                   <TableCell><StatusBadge suspended={u.isSuspended} /></TableCell>
                   <TableCell>{u.age ?? "—"}</TableCell>
                   <TableCell>{fmtDay(u.createdAt)}</TableCell>

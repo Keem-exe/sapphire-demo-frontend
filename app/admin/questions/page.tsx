@@ -52,6 +52,7 @@ function QuestionBank() {
   const sp = useSearchParams()
   const status = (sp.get("status") as QuestionStatus) || "draft"
   const flag = (sp.get("flag") as Flag | null) ?? undefined
+  const materialId = sp.get("materialId") || undefined
   const selectedId = sp.get("id") ? Number(sp.get("id")) : null
 
   const [subjectId, setSubjectId] = useState(ALL)
@@ -72,6 +73,7 @@ function QuestionBank() {
     subjectId: subjectId === ALL ? undefined : subjectId,
     source: source === ALL ? undefined : source,
     q: q || undefined,
+    materialId,
     ...(flag ? { [flag]: 1 } : {}),
   }
   const filterKey = JSON.stringify(filters)
@@ -152,6 +154,12 @@ function QuestionBank() {
         )}
       </div>
 
+      {materialId && (
+        <div className="mb-3 flex items-center gap-2 text-sm">
+          <Badge variant="secondary">Showing one uploaded file</Badge>
+          <Button size="sm" variant="ghost" className="h-7" onClick={() => setParams({ materialId: undefined, id: undefined })}>Show all</Button>
+        </div>
+      )}
       <ErrorNote message={list.error || summary.error} />
 
       {bankIsEmpty ? (

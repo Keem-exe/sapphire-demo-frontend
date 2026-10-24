@@ -71,6 +71,14 @@ export function RoleBadge({ role }: { role: string }) {
   )
 }
 
+export function OwnerBadge({ className }: { className?: string }) {
+  return (
+    <Badge variant="outline" className={cn("border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400", className)}>
+      Owner
+    </Badge>
+  )
+}
+
 export function StatusBadge({ suspended }: { suspended: boolean }) {
   return suspended ? (
     <Badge variant="destructive">Suspended</Badge>

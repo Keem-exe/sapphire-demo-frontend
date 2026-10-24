@@ -10,6 +10,7 @@ import { api } from "@/lib/admin/api"
 import { mutate } from "@/lib/admin/mutate"
 import type { Setting } from "@/lib/admin/types"
 import { useApi } from "@/lib/admin/use-api"
+import { useAdmin } from "@/components/admin/admin-auth"
 import { ConfirmDialog, ErrorNote, PageHeader, fmtDate } from "@/components/admin/common"
 
 const LABELS: Record<string, string> = {
@@ -19,6 +20,7 @@ const LABELS: Record<string, string> = {
 }
 
 export default function SettingsPage() {
+  const { isOwner } = useAdmin()
   const { data, loading, error } = useApi<{ settings: Setting[] }>("/api/admin/settings")
   const [pending, setPending] = useState<string | null>(null)
   const [confirmMaintenance, setConfirmMaintenance] = useState(false)
@@ -37,6 +39,11 @@ export default function SettingsPage() {
     <>
       <PageHeader title="Settings" description="Platform-wide toggles. Changes take effect immediately." />
       <ErrorNote message={error} />
+      {!isOwner && (
+        <p className="mb-3 max-w-2xl rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          Platform settings are read-only. Only the owner account can change them.
+        </p>
+      )}
       <div className="max-w-2xl space-y-3">
         {loading && !data && <Skeleton className="h-20 w-full" />}
         {settings?.map((s) => (
@@ -59,7 +66,7 @@ export default function SettingsPage() {
               </div>
               <Switch
                 checked={s.value}
-                disabled={pending === s.key}
+                disabled={!isOwner || pending === s.key}
                 aria-label={LABELS[s.key]}
                 onCheckedChange={(v) => (s.key === "maintenance_mode" && v ? setConfirmMaintenance(true) : update(s.key, v))}
               />
