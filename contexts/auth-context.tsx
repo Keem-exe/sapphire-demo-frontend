@@ -133,6 +133,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
       try {
         const parsed = normalizeUser(JSON.parse(storedUser))
+        if (parsed.user_id !== DEMO_USER.user_id && !localStorage.getItem("authToken")) {
+          // A real account without a token can't reach the backend: sign in again instead of
+          // showing a dashboard where nothing loads or saves.
+          SESSION_KEYS.forEach((k) => localStorage.removeItem(k))
+          setIsSynced(true)
+          setIsLoading(false)
+          return
+        }
         if (parsed.user_id === DEMO_USER.user_id) {
           parsed.level = (localStorage.getItem("selectedLevel") as Level) || undefined
           parsed.onboardingCompletedAt = localStorage.getItem(DEMO_ONBOARDING_KEY)

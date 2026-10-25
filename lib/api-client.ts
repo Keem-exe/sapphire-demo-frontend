@@ -10,9 +10,28 @@ const BACKEND_URL = API_URL;
 /** Fired when a 401 can't be recovered by refreshing; AuthProvider sends the user to login. */
 export const SESSION_EXPIRED_EVENT = 'auth:session-expired';
 
+// One token refresh at a time for the whole app. Several ApiClient instances exist and pages fire
+// requests in parallel; when the access token expires they must all wait for the same refresh.
+// (Before, every request but the first was told "refresh failed" and wiped the tokens, leaving a
+// signed-in-looking user with no token whose requests all silently failed.)
+let refreshInFlight: Promise<boolean> | null = null;
+
+const AUTH_ENDPOINTS = ['/api/auth/login', '/api/auth/signup', '/api/auth/refresh'];
+
+/** A stored real (non-demo) account: the only case where a dead session should sign the user out. */
+function hasStoredAccount(): boolean {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return false;
+    const user = JSON.parse(raw);
+    return !!user && (user.user_id ?? user.id) !== 999;
+  } catch {
+    return false;
+  }
+}
+
 export class ApiClient {
   private baseUrl: string;
-  private isRefreshing = false;
 
   constructor(baseUrl: string = BACKEND_URL) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -29,13 +48,19 @@ export class ApiClient {
     return headers;
   }
 
-  private async tryRefreshToken(): Promise<boolean> {
-    if (this.isRefreshing) return false;
-    if (typeof window === 'undefined') return false;
+  private tryRefreshToken(): Promise<boolean> {
+    if (typeof window === 'undefined') return Promise.resolve(false);
+    if (!refreshInFlight) {
+      refreshInFlight = this.refreshOnce().finally(() => {
+        refreshInFlight = null;
+      });
+    }
+    return refreshInFlight;
+  }
+
+  private async refreshOnce(): Promise<boolean> {
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) return false;
-
-    this.isRefreshing = true;
     try {
       const res = await fetch(`${this.baseUrl}/api/auth/refresh`, {
         method: 'POST',
@@ -52,8 +77,6 @@ export class ApiClient {
       return true;
     } catch {
       return false;
-    } finally {
-      this.isRefreshing = false;
     }
   }
 
@@ -95,18 +118,18 @@ export class ApiClient {
   private async fetchWithRetry(url: string, options: RequestInit, retried = false): Promise<Response> {
     const res = await fetch(url, { ...options, headers: this.getAuthHeaders() });
 
-    if (res.status === 401 && !retried) {
-      const refreshed = await this.tryRefreshToken();
+    const isAuthCall = AUTH_ENDPOINTS.some((p) => url.includes(p));
+    if (res.status === 401 && !isAuthCall) {
+      const refreshed = !retried && (await this.tryRefreshToken());
       if (refreshed) {
         return this.fetchWithRetry(url, options, true);
       }
-      // Refresh failed — clear tokens so the next request doesn't loop
+      // The session can't be recovered (refresh failed, or the retry was still rejected): clear it
+      // and send a real account back to sign in. The demo account has no session to lose.
       if (typeof window !== 'undefined') {
-        // Demo user has no token; only a real session that lapsed should be signed out
-        const hadSession = !!localStorage.getItem('authToken');
         localStorage.removeItem('authToken');
         localStorage.removeItem('refreshToken');
-        if (hadSession) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+        if (hasStoredAccount()) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
       }
     }
 
