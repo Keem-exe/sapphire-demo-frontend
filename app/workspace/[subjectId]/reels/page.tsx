@@ -94,7 +94,9 @@ const ALL_TOPICS = "All topics"
 
 function withPlayerParams(baseUrl: string, options: { muted: boolean; videoId: string }) {
   const separator = baseUrl.includes("?") ? "&" : "?"
-  const common = `autoplay=1&mute=${options.muted ? 1 : 0}&controls=1&rel=0&modestbranding=1&playsinline=1`
+  // enablejsapi lets the page hear play/pause, so only time actually watched counts as study time.
+  const origin = typeof window !== "undefined" ? `&origin=${encodeURIComponent(window.location.origin)}` : ""
+  const common = `autoplay=1&mute=${options.muted ? 1 : 0}&controls=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1${origin}`
 
   // YouTube search playlist embeds do not support forcing synthetic playlist IDs.
   if (baseUrl.includes("listType=search")) {
@@ -270,6 +272,60 @@ export default function ReelsPage() {
     apiClient.post(`/api/reels/${currentReel.id}/view`).catch(() => viewedReels.current.delete(currentReel.id))
   }, [currentReel?.id, isPlaying])
 
+  // Watch time: the YouTube player reports play/pause over postMessage. Seconds actually played are
+  // sent when the student moves to another reel, hides the tab or leaves the page.
+  const playerRef = useRef<HTMLIFrameElement>(null)
+  const watch = useRef<{ reelId: number | string | null; since: number | null; seconds: number }>({ reelId: null, since: null, seconds: 0 })
+  const flushWatch = () => {
+    const w = watch.current
+    if (w.since !== null) w.seconds += (Date.now() - w.since) / 1000
+    w.since = null
+    const seconds = Math.round(w.seconds)
+    w.seconds = 0
+    if (w.reelId !== null && seconds >= 1 && hasAuthToken()) {
+      apiClient.post(`/api/reels/${w.reelId}/watch`, { seconds }).catch(() => {})
+    }
+  }
+
+  useEffect(() => {
+    watch.current.reelId = currentReel?.id ?? null
+    return flushWatch // switching reels or leaving the page
+  }, [currentReel?.id])
+
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (!/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin) || typeof e.data !== "string") return
+      let msg: any
+      try {
+        msg = JSON.parse(e.data)
+      } catch {
+        return
+      }
+      const state = msg.event === "onStateChange" ? msg.info : msg.event === "infoDelivery" ? msg.info?.playerState : undefined
+      if (typeof state !== "number") return
+      const w = watch.current
+      if (state === 1 && w.since === null) w.since = Date.now() // playing
+      else if (state !== 1 && w.since !== null) {
+        w.seconds += (Date.now() - w.since) / 1000
+        w.since = null
+      }
+    }
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushWatch()
+    }
+    window.addEventListener("message", onMessage)
+    document.addEventListener("visibilitychange", onHide)
+    return () => {
+      window.removeEventListener("message", onMessage)
+      document.removeEventListener("visibilitychange", onHide)
+    }
+  }, [])
+
+  // Ask the player to send its state changes (the iframe API's "listening" handshake).
+  const listenToPlayer = () => {
+    playerRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: 1, channel: "widget" }), "https://www.youtube.com")
+  }
+
   const handleNext = () => {
     setCurrentReelIndex((index) => {
       const nextIndex = Math.min(index + 1, Math.max(reels.length - 1, 0))
@@ -412,6 +468,8 @@ export default function ReelsPage() {
           <div className="relative aspect-[9/16] w-full max-w-[380px] overflow-hidden rounded-3xl bg-gradient-to-br from-[#12306f] to-[#08142e] shadow-lg">
             {currentReel && isPlaying && currentReel.embedUrl ? (
               <iframe
+                ref={playerRef}
+                onLoad={listenToPlayer}
                 key={`${currentReel.videoId}-${isMuted ? "muted" : "sound"}`}
                 src={withPlayerParams(currentReel.embedUrl, { muted: isMuted, videoId: currentReel.videoId })}
                 title={currentReel.title}

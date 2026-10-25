@@ -199,6 +199,62 @@ export interface SavedResource {
   savedAt: string | null;
 }
 
+export type TopicBand = "strong" | "developing" | "work_on";
+
+export interface DiagnosticTopicResult {
+  topicId: number;
+  topicName: string;
+  score: number; // 0-100
+  band: TopicBand;
+}
+
+export interface DiagnosticSummary {
+  id: number;
+  kind: "baseline" | "followup";
+  score: number;
+  completedAt: string;
+  topics: DiagnosticTopicResult[]; // weakest first
+}
+
+export interface DiagnosticOption {
+  label: string;
+  text: string;
+}
+
+/** An attempt in progress: questions without answers, plus the student's picks so far. */
+export interface DiagnosticAttempt {
+  id: number;
+  kind: "baseline" | "followup";
+  startedAt: string;
+  questions: { index: number; topicName: string; text: string; options: DiagnosticOption[] }[];
+  answers: Record<string, string>;
+}
+
+export interface DiagnosticStatus {
+  questionCount: number;
+  minutes: number;
+  inProgress: DiagnosticAttempt | null;
+  baseline: DiagnosticSummary | null;
+  latest: DiagnosticSummary | null;
+  canStart: boolean;
+  nextAvailableAt: string | null;
+}
+
+export interface DiagnosticResults extends DiagnosticSummary {
+  correct: number;
+  total: number;
+  questions: {
+    index: number;
+    topicName: string;
+    text: string;
+    options: DiagnosticOption[];
+    answer: string;
+    explanation: string;
+    yourAnswer: string | null;
+    isCorrect: boolean;
+  }[];
+}
+
 export type MeUser = Record<string, any>;
 
 const unwrap = <T,>(res: any): T => (res?.data ?? res) as T;
@@ -233,6 +289,8 @@ export const meService = {
     learningStyle?: string;
     timezone?: string;
     onboardingCompleted?: boolean;
+    gradeLevel?: string | null;
+    schoolType?: string | null;
   }): Promise<MeUser> {
     return unwrap<{ user: MeUser }>(await apiClient.patch("/api/users/me", fields)).user;
   },
@@ -283,6 +341,26 @@ export const meService = {
   },
   async logNoteActivity(body: { subjectId: number; durationSeconds?: number; wordCount?: number; topicId?: number | null }) {
     return unwrap(await apiClient.post("/api/learning/interactions", { type: "notebook", ...body }));
+  },
+
+  // Per-subject diagnostic
+  async diagnosticStatus(backendSubjectId: number): Promise<DiagnosticStatus> {
+    return unwrap(await apiClient.get(`/api/subject/${backendSubjectId}/diagnostic`));
+  },
+  /** Starts a new diagnostic, or returns the one already in progress. */
+  async startDiagnostic(backendSubjectId: number): Promise<DiagnosticAttempt> {
+    return unwrap(await apiClient.post(`/api/subject/${backendSubjectId}/diagnostic`));
+  },
+  async answerDiagnostic(attemptId: number, index: number, answer: string) {
+    return unwrap<{ answered: number; total: number }>(
+      await apiClient.post(`/api/diagnostics/${attemptId}/answer`, { index, answer }),
+    );
+  },
+  async finishDiagnostic(attemptId: number): Promise<DiagnosticResults> {
+    return unwrap(await apiClient.post(`/api/diagnostics/${attemptId}/finish`));
+  },
+  async diagnosticResults(attemptId: number): Promise<DiagnosticResults> {
+    return unwrap(await apiClient.get(`/api/diagnostics/${attemptId}`));
   },
 };
 

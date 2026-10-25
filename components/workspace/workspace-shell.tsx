@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleDot,
+  ClipboardCheck,
   ClipboardList,
   Columns3,
   Circle,
@@ -37,6 +38,7 @@ import { cn } from "@/lib/utils"
 import { meService, taskRoute, type SubjectOverview } from "@/lib/services/me-service"
 import { SyllabusNotice } from "@/components/workspace/syllabus-notice"
 import type { SubjectId } from "@/lib/data/subjects"
+import { useDiagnosticStatus } from "@/lib/hooks/use-me"
 
 type ItemId = "notebook" | "sapphy" | "flashcards" | "quiz" | "reels" | "assign" | "resources" | "syllabus"
 type Place = "left" | "right" | "off"
@@ -131,6 +133,8 @@ interface WorkspaceShellProps {
   chat: (opts: { fullScreen: boolean }) => React.ReactNode // real AI coach
   /** The student's real numbers for this subject; null for the demo account (or while loading) */
   stats: SubjectOverview | null
+  /** A signed-in student (real numbers only); false only for the demo account */
+  live: boolean
   statsLoading?: boolean
   /** Backend subject id, for focus sessions (null for the demo account) */
   backendSubjectId: number | null
@@ -171,11 +175,26 @@ export function WorkspaceShell({
   notebook,
   chat,
   stats,
+  live,
   statsLoading = false,
   backendSubjectId,
 }: WorkspaceShellProps) {
   const router = useRouter()
-  const live = stats !== null || statsLoading
+  const diag = useDiagnosticStatus(live ? backendSubjectId : null).data
+  // "Not now" on the diagnostic prompt is remembered in this browser only; the header button stays.
+  const laterKey = `sapphire_diagnostic_later_${subjectId}`
+  const [diagLater, setDiagLater] = useState(false)
+  useEffect(() => {
+    try {
+      setDiagLater(localStorage.getItem(laterKey) === "1")
+    } catch {}
+  }, [laterKey])
+  const dismissDiagnostic = () => {
+    setDiagLater(true)
+    try {
+      localStorage.setItem(laterKey, "1")
+    } catch {}
+  }
   const [place, setPlace] = useState<Record<ItemId, Place>>(DEFAULT_PLACE)
   const [openL, setOpenL] = useState(false)
   const [openR, setOpenR] = useState(false)
@@ -441,6 +460,17 @@ export function WorkspaceShell({
       )
     })
 
+  const diagnosticHref = `/workspace/${subjectId}/diagnostic`
+  const diagnosticLabel = !diag
+    ? "Diagnostic"
+    : diag.inProgress
+      ? "Resume diagnostic"
+      : diag.latest
+        ? diag.canStart
+          ? "Check your progress"
+          : `Diagnostic ${Math.round(diag.latest.score)}%`
+        : "Take diagnostic"
+
   const overview = (
     <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-[22px] px-7 pb-12 pt-7">
       {/* One-time heads-up for subjects moved onto the official CXC syllabus */}
@@ -458,13 +488,46 @@ export function WorkspaceShell({
             {live ? lastStudiedLabel(stats?.lastStudiedAt) : "Last studied 2 hours ago"}
           </p>
         </div>
-        <Button variant="outline" className="min-h-11 rounded-xl shadow-none" onClick={() => router.push(`/workspace/${subjectId}/resources`)}>
-          <Timer className="size-4" aria-hidden="true" />
-          {stats?.examDate
-            ? `Exam ${new Date(`${stats.examDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`
-            : "Set exam date"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {live && (
+            <Button variant="outline" className="min-h-11 rounded-xl shadow-none" onClick={() => router.push(diagnosticHref)}>
+              <ClipboardCheck className="size-4" aria-hidden="true" />
+              {diagnosticLabel}
+            </Button>
+          )}
+          <Button variant="outline" className="min-h-11 rounded-xl shadow-none" onClick={() => router.push(`/workspace/${subjectId}/resources`)}>
+            <Timer className="size-4" aria-hidden="true" />
+            {stats?.examDate
+              ? `Exam ${new Date(`${stats.examDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`
+              : "Set exam date"}
+          </Button>
+        </div>
       </div>
+
+      {/* Sapphy offers the baseline the first time; "Not now" hides this card, the button above stays. */}
+      {live && diag && !diag.baseline && !diagLater && (
+        <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-primary/30 bg-primary/5 p-5">
+          <Sapphy mood="happy" className="size-14 shrink-0" />
+          <div className="min-w-[220px] flex-1">
+            <p className="font-semibold">
+              {diag.inProgress ? "Finish your diagnostic" : `Let's see where you are in ${subjectName}`}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {diag.inProgress
+                ? `${Object.keys(diag.inProgress.answers).length} of ${diag.inProgress.questions.length} answered. Pick up where you left off.`
+                : `${diag.questionCount} quick questions, about ${diag.minutes} minutes. I'll use your answers to choose where you start.`}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button className="min-h-11 rounded-xl px-5 font-semibold" onClick={() => router.push(diagnosticHref)}>
+              {diag.inProgress ? "Resume" : "Start diagnostic"}
+            </Button>
+            <Button variant="ghost" className="min-h-11 rounded-xl shadow-none" onClick={dismissDiagnostic}>
+              Not now
+            </Button>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3.5">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">

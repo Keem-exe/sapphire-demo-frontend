@@ -28,6 +28,9 @@ export interface User {
   /** null until the student finishes or skips the Sapphy guide (demo account: kept in this browser) */
   onboardingCompletedAt?: string | null
   isFirstLogin?: boolean
+  /** "Form 1"–"Form 5", "Lower 6", "Upper 6"; also caps how hard Sapphy's questions get */
+  gradeLevel?: string | null
+  schoolType?: string | null
 }
 
 interface AuthContextType {
@@ -47,6 +50,7 @@ interface AuthContextType {
   saveLearningStyleAnswers: (answers: { questionId: number; value: LearningStyleKey }[]) => Promise<LearningStyleKey>
   completeOnboarding: () => Promise<void>
   restartOnboarding: () => Promise<void>
+  updateSchoolDetails: (fields: { gradeLevel?: string | null; schoolType?: string | null }) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -352,6 +356,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyServerUser(await meService.updateMe({ onboardingCompleted: true }))
   }
 
+  const updateSchoolDetails = async (fields: { gradeLevel?: string | null; schoolType?: string | null }) => {
+    if (!user) return
+    persist({ ...user, ...fields })
+    if (isDemo) return
+    applyServerUser(await meService.updateMe(fields))
+  }
+
   const restartOnboarding = async () => {
     if (!user) return
     persist({ ...user, onboardingCompletedAt: null })
@@ -377,6 +388,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         saveLearningStyleAnswers,
         completeOnboarding,
         restartOnboarding,
+        updateSchoolDetails,
       }}
     >
       {children}

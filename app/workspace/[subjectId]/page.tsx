@@ -31,7 +31,10 @@ export default function WorkspacePage() {
   // Real topics (syllabus order) and real stats for signed-in students; the demo gets sample data.
   const subjectTopics = useSubjectTopics(subjectId)
   const overview = useSubjectOverview(subjectTopics.backendSubjectId)
-  const live = typeof window !== "undefined" && hasAuthToken()
+  // Demo or real is decided by the session, never by whether stats have arrived. The server can't see
+  // the session, so start as a real account: the demo's sample numbers must never flash for one.
+  const [isDemo, setIsDemo] = useState(false)
+  useEffect(() => setIsDemo(!hasAuthToken()), [])
 
   // Canonicalize URL
   useEffect(() => {
@@ -132,7 +135,8 @@ export default function WorkspacePage() {
       levelLabel={subject.level.toUpperCase()}
       topics={subjectTopics.names}
       stats={overview.data}
-      statsLoading={live && (subjectTopics.loading || overview.loading) && !overview.data}
+      live={!isDemo}
+      statsLoading={!isDemo && !overview.data && !overview.error && !subjectTopics.error}
       backendSubjectId={subjectTopics.backendSubjectId}
       noteTitles={notes.map((n) => n.title)}
       onBack={handleBack}

@@ -280,7 +280,8 @@ const CONTENT: Record<Exclude<FabActivity, "dashboard">, FabContent> = {
       {
         "t": "Set your exam date",
         "why": "I'll plan one paper a week",
-        "to": ""
+        "to": "",
+        "href": "?exam=1"
       }
     ],
     "askIntro": "Ask me about any paper or mark scheme.",
@@ -403,7 +404,7 @@ const LIVE: Record<Exclude<FabActivity, "dashboard">, FabContent> = {
     good: [],
     work: [],
     steps: [
-      { t: "Set your exam date", why: "Your dashboard counts down to it", to: "" },
+      { t: "Set your exam date", why: "Your dashboard counts down to it", to: "", href: "?exam=1" },
       { t: "Practise timed questions", why: "Exam conditions", to: "quiz" },
     ],
     askIntro: "Ask me about any paper or mark scheme.",

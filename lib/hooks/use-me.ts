@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hasAuthToken } from "@/lib/services/backend-subject-map";
-import { meService, type Overview, type ProfileStats, type SubjectOverview } from "@/lib/services/me-service";
+import { meService, type DiagnosticStatus, type Overview, type ProfileStats, type SubjectOverview } from "@/lib/services/me-service";
 
 type Loadable<T> = { data: T | null; loading: boolean; error: string | null; refresh: () => void };
 
@@ -68,6 +68,14 @@ export function useOverview(enabled = true) {
 export function useSubjectOverview(backendSubjectId: number | null) {
   return useLoad<SubjectOverview>(
     backendSubjectId ? () => meService.subjectOverview(backendSubjectId) : null,
+    [backendSubjectId],
+  );
+}
+
+/** The subject's diagnostic: taken or not, in progress, when a retake opens. */
+export function useDiagnosticStatus(backendSubjectId: number | null) {
+  return useLoad<DiagnosticStatus>(
+    backendSubjectId ? () => meService.diagnosticStatus(backendSubjectId) : null,
     [backendSubjectId],
   );
 }

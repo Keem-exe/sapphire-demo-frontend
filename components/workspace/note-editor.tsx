@@ -32,6 +32,9 @@ interface NoteEditorProps {
   backendSubjectId?: number | null
 }
 
+const IDLE_MS = 2 * 60 * 1000
+const MIN_LOGGED_SECONDS = 10
+
 export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subjectId, backendSubjectId }: NoteEditorProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -39,7 +42,6 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
   const [content, setContent] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState("")
-  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null)
   const [wordCount, setWordCount] = useState(0)
   const [predictiveEnabled, setPredictiveEnabled] = useState(true)
   const [predictiveText, setPredictiveText] = useState("")
@@ -68,7 +70,6 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
       setTitle("")
       setContent("")
       setTags([])
-      setSessionStartTime(Date.now()) // Start tracking new note session
     }
   }, [note, isCreatingNote])
 
@@ -77,6 +78,48 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
     const words = content.trim().split(/\s+/).filter(w => w.length > 0).length;
     setWordCount(words);
   }, [content])
+
+  // Study time is time spent actively writing: a gap of more than IDLE_MS between edits doesn't count.
+  // Notes live in this browser; only the seconds and word count go to the backend, never the text.
+  // It's sent on save, when switching notes, when the tab is hidden and when the editor closes.
+  const activeMs = useRef(0)
+  const lastEditAt = useRef<number | null>(null)
+  const latest = useRef({ user, backendSubjectId, wordCount })
+  latest.current = { user, backendSubjectId, wordCount }
+
+  const markEdit = () => {
+    const now = Date.now()
+    if (lastEditAt.current !== null && now - lastEditAt.current < IDLE_MS) activeMs.current += now - lastEditAt.current
+    lastEditAt.current = now
+  }
+
+  /** Send the writing time not yet recorded. Returns true if any was. */
+  const flushStudyTime = async () => {
+    const seconds = Math.round(activeMs.current / 1000)
+    activeMs.current = 0
+    lastEditAt.current = null
+    const { user, backendSubjectId, wordCount } = latest.current
+    if (!user || !backendSubjectId || seconds < MIN_LOGGED_SECONDS) return false
+    try {
+      await meService.logNoteActivity({ subjectId: backendSubjectId, durationSeconds: seconds, wordCount })
+      return true
+    } catch (error) {
+      console.error("Failed to record note-taking:", error)
+      return false
+    }
+  }
+
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushStudyTime()
+    }
+    document.addEventListener("visibilitychange", onHide)
+    return () => {
+      document.removeEventListener("visibilitychange", onHide)
+      flushStudyTime() // switching notes or closing the editor
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note?.id, isCreatingNote])
 
   useEffect(() => {
     if (!predictiveEnabled) {
@@ -159,18 +202,8 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
       tags,
     }
     onSave?.(savedNote)
-    
-    // Notes live in this browser; tell the backend about the study time so it counts on the
-    // dashboard and profile. Note text is never sent.
-    if (user && backendSubjectId && sessionStartTime) {
-      try {
-        const durationSeconds = Math.min(4 * 60 * 60, Math.round((Date.now() - sessionStartTime) / 1000));
-        await meService.logNoteActivity({ subjectId: backendSubjectId, durationSeconds, wordCount });
-        setSessionStartTime(Date.now());
-        toast({ title: "Note saved", description: "Your study time has been added to your progress." });
-      } catch (error) {
-        console.error('Failed to record note-taking:', error);
-      }
+    if (await flushStudyTime()) {
+      toast({ title: "Note saved", description: "Your study time has been added to your progress." });
     }
   }
 
@@ -246,12 +279,14 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
 
     if (next === content) return
     pendingSelection.current = [selStart, selEnd]
+    markEdit()
     setContent(next)
   }
 
   const acceptPrediction = () => {
     if (!predictiveText) return
 
+    markEdit()
     setContent((previous) => {
       const needsSpace = previous.length > 0 && !/\s$/.test(previous)
       return `${previous}${needsSpace ? " " : ""}${predictiveText}`
@@ -293,7 +328,10 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
           type="text"
           placeholder="Note title..."
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            markEdit()
+            setTitle(e.target.value)
+          }}
           className="text-xl font-semibold border-0 px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         />
       </div>
@@ -426,7 +464,10 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
             ref={textareaRef}
             placeholder="Start writing your notes..."
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => {
+              markEdit()
+              setContent(e.target.value)
+            }}
             onKeyDown={(e) => {
               if (e.key === "Tab" && predictiveText) {
                 e.preventDefault()

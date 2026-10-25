@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { User, Award, TrendingUp, Clock, AlertTriangle, Target, Brain, Flame, ShieldCheck, CheckCircle2, Circle } from "lucide-react"
 
@@ -80,6 +82,48 @@ const formatDate = (iso: string | null) =>
   iso ? new Date(iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`).toLocaleDateString() : ""
 
 const minutes = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`)
+
+// Same values the backend accepts (UpdateMeSchema). The form also sets how hard Sapphy's questions can get.
+const GRADE_LEVELS = ["Form 1", "Form 2", "Form 3", "Form 4", "Form 5", "Lower 6", "Upper 6"]
+const SCHOOL_TYPES = ["Government", "Private", "Denominational", "Homeschool"]
+
+/** Form and school type, saved to the account as soon as they're picked. */
+function SchoolDetails() {
+  const { user, updateSchoolDetails } = useAuth()
+  const [error, setError] = useState<string | null>(null)
+  const save = (fields: { gradeLevel?: string; schoolType?: string }) => {
+    setError(null)
+    updateSchoolDetails(fields).catch((e) => setError(e?.message || "Couldn't save that. Please try again."))
+  }
+  const field = (id: string, label: string, value: string | null | undefined, options: string[], key: "gradeLevel" | "schoolType") => (
+    <div className="space-y-1.5">
+      <Label htmlFor={id} className="text-sm font-normal text-muted-foreground">
+        {label}
+      </Label>
+      <Select value={value ?? undefined} onValueChange={(v) => save({ [key]: v })}>
+        <SelectTrigger id={id} className="h-11 w-full rounded-xl">
+          <SelectValue placeholder="Choose…" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>
+              {o}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        {field("grade-level", "Form", user?.gradeLevel, GRADE_LEVELS, "gradeLevel")}
+        {field("school-type", "School type", user?.schoolType, SCHOOL_TYPES, "schoolType")}
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  )
+}
 
 export default function ProfilePage() {
   const { user, isLoading: authLoading, isDemo } = useAuth()
@@ -191,6 +235,7 @@ export default function ProfilePage() {
                   {style ? STYLE_LABEL[style] : "Not set yet"}
                 </Badge>
               </div>
+              {!isDemo && <SchoolDetails />}
               {isDemo && (
                 <Badge variant="secondary" className="w-full justify-center">
                   Demo account · sample numbers

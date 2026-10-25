@@ -394,6 +394,8 @@ export function AiChatPanel({ subjectName, sampleThread = false }: AiChatPanelPr
   messageCount.current = messages.length
   // A different subject is a different conversation: stop sending earlier turns
   useEffect(() => { setContextStart(messageCount.current) }, [subjectName])
+  // Study time for each message: since the chat opened or the last message (the backend caps it at 10 min).
+  const lastSentAt = useRef(Date.now())
   const starterChips = seeded ? SAMPLE_CHIPS : getStarterChips(subjectName)
   const showChips = messages.length === (seeded ? SAMPLE_THREAD.length : 1)
 
@@ -434,10 +436,14 @@ export function AiChatPanel({ subjectName, sampleThread = false }: AiChatPanelPr
           .filter((m) => !m.isError)
           .slice(-20)
           .map((m) => ({ role: m.role === "user" ? "student" : "tutor", text: m.content.slice(0, 2000) }))
+        const now = Date.now()
+        const timeSpentSeconds = Math.round((now - lastSentAt.current) / 1000)
+        lastSentAt.current = now
         const response: any = await apiClient.post("/api/ai/chat", {
           subjectId: backendSubject.subjectId,
           message: cleanedMessage,
           ...(history.length > 0 ? { history } : {}),
+          timeSpentSeconds,
         })
 
         const data = response?.data || response

@@ -401,7 +401,7 @@ export default function DashboardPage() {
                 <span className="text-xs font-semibold uppercase tracking-wide text-sky">Exam countdown</span>
                 <span className="text-white/90">Add your exam date and I'll count down with you.</span>
                 {firstSubject && (
-                  <Link href={`/workspace/${firstSubject}/resources`} className="mt-1 text-sm font-semibold text-white underline underline-offset-4">
+                  <Link href={`/workspace/${firstSubject}/resources?exam=1`} className="mt-1 text-sm font-semibold text-white underline underline-offset-4">
                     Set exam date
                   </Link>
                 )}

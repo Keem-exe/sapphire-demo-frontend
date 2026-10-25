@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, BookOpen, Download, FileText, FolderOpen, Play, Search, Bookmark, PenLine, Trash2 } from "lucide-react"
 import { SUBJECTS, normalizeSubjectId } from "@/lib/data/subjects"
 import { Button } from "@/components/ui/button"
@@ -55,7 +55,7 @@ export default function ResourcesPage() {
   const subject = SUBJECTS[subjectId]
   const level = subject?.level === "cape" ? "CAPE" : "CSEC"
 
-  const [live, setLive] = useState(false)
+  const [live, setLive] = useState(true) // start real: load() switches the demo account over
   const [backendSubjectId, setBackendSubjectId] = useState<number | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [attempts, setAttempts] = useState<PastPaper[]>([])
@@ -117,6 +117,18 @@ export default function ResourcesPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  // ?exam=1 (from the dashboard countdown and Sapphy's "Set your exam date" step) opens the date picker.
+  const router = useRouter()
+  const pathname = usePathname()
+  const wantsExamDialog = useSearchParams().has("exam")
+  useEffect(() => {
+    if (!wantsExamDialog) return
+    setDraftDate(examDate)
+    setFormError(null)
+    setExamOpen(true)
+    router.replace(pathname, { scroll: false })
+  }, [wantsExamDialog, examDate, router, pathname])
 
   // Latest attempt per paper title
   const latest = useMemo(() => {

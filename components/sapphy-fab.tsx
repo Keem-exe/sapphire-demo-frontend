@@ -33,7 +33,7 @@ const VERDICT_TONE = {
  */
 export function SapphyFab({ activity, subjectId = "csec-math", startOpen, content }: SapphyFabProps) {
   const { user } = useAuth()
-  const [live, setLive] = useState(false)
+  const [live, setLive] = useState(true) // start real: demo copy must never flash for a signed-in student
   useEffect(() => setLive(hasAuthToken()), [])
   const d: FabContent = { ...(live ? LIVE_FAB_CONTENT : FAB_CONTENT)[activity], ...(content ?? {}) }
   const [open, setOpen] = useState(startOpen ?? d.ended)

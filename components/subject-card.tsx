@@ -2,7 +2,8 @@
 
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ChevronRight } from "lucide-react"
+import { useEffect, useTransition } from "react"
+import { ChevronRight, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { subjectStripe } from "@/lib/brand"
 import type { Level, SubjectId } from "@/lib/data/subjects"
@@ -38,12 +39,17 @@ export function SubjectCard({ subject }: { subject: SubjectCardData }) {
   const stripe = subjectStripe(subject.id)
   const pct = Math.max(0, Math.min(100, Math.round(subject.masteryPercent)))
 
-  const open = () => router.push(`/workspace/${subject.id}`)
+  const href = `/workspace/${subject.id}`
+  // Show the click landed while the workspace loads; prefetch so it's quick in production builds.
+  const [pending, startTransition] = useTransition()
+  useEffect(() => router.prefetch(href), [router, href])
+  const open = () => startTransition(() => router.push(href))
 
   return (
     <Card
       role="link"
       tabIndex={0}
+      aria-busy={pending}
       onClick={open}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -64,7 +70,11 @@ export function SubjectCard({ subject }: { subject: SubjectCardData }) {
             <p className="text-xs text-muted-foreground">{timeAgo(subject.lastStudiedAt)}</p>
           </div>
           <Badge variant="outline">{subject.level.toUpperCase()}</Badge>
-          <ChevronRight className="size-5 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden="true" />
+          {pending ? (
+            <Loader2 className="size-5 animate-spin text-primary" aria-hidden="true" />
+          ) : (
+            <ChevronRight className="size-5 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden="true" />
+          )}
         </div>
         <div className="flex items-center gap-[18px]">
           <div

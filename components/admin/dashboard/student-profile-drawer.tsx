@@ -87,7 +87,7 @@ export function StudentProfileDrawer({ id, onClose }: { id: number | null; onClo
               <Metric label="Diagnostic" value={<span className="text-base capitalize">{data.learning.diagnosticStatus?.replace("_", " ") ?? "—"}</span>} hint={data.learning.diagnosticScore != null ? `Score ${pct(data.learning.diagnosticScore)}` : undefined} />
               <Metric label="Overall proficiency" value={pct(data.learning.overallProficiencyPercent)} />
               <Metric label="Quizzes completed" value={num(data.learning.quizzesCompleted)} />
-              <Metric label="Assignments completed" value={num(data.learning.assignmentsCompleted)} />
+              <Metric label="Assignments generated" value={num(data.learning.assignmentsCompleted)} />
             </div>
             <BarList rows={data.learning.subjectProficiency.map((s) => ({ key: s.subjectId, label: s.subject, value: s.percent }))} format={(n) => pct(n)} />
             <div className="grid gap-4 sm:grid-cols-2">
