@@ -63,8 +63,9 @@ export const quizHistoryService = {
         id: interaction.id,
         subjectId: interaction.subjectId,
         topic: interaction.metadata?.topic || 'General',
-        cardsStudied: interaction.metadata?.cardsStudied || 0,
-        cardsMastered: interaction.metadata?.cardsMastered || 0,
+        // The backend records cards_reviewed / cards_mastered (see LearningEngineIntegration)
+        cardsStudied: interaction.metadata?.cards_reviewed ?? interaction.metadata?.cardsStudied ?? 0,
+        cardsMastered: interaction.metadata?.cards_mastered ?? interaction.metadata?.cardsMastered ?? 0,
         masteryRate: interaction.accuracy || 0,
         durationSeconds: interaction.durationSeconds || 0,
         completedAt: interaction.createdAt

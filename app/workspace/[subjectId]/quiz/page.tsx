@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import type React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { SUBJECTS, type SubjectId } from "@/lib/data/subjects";
+import { SUBJECTS, normalizeSubjectId } from "@/lib/data/subjects";
+import { useSubjectTopics } from "@/lib/services/subject-topics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,17 +53,6 @@ type BackendQuizResult = {
   questionResults: BackendQuestionResult[];
 };
 
-const normalizeSubjectId = (id: string): SubjectId => {
-  const map: Record<string, SubjectId> = {
-    "csec-1": "csec-math",
-    "csec-2": "csec-chem",
-    "csec-3": "csec-eng",
-    "cape-1": "cape-puremath",
-    "cape-2": "cape-phys",
-    "cape-3": "cape-bio",
-  };
-  return (map[id] || id) as SubjectId;
-};
 
 // SAMPLE: questions shown when there is no backend session and no Gemini key, so the quiz screens
 // can still be tried. Real accounts always use the backend questions.
@@ -79,6 +69,9 @@ export default function QuizPage() {
   const rawId = String(params.subjectId || "csec-math");
   const subjectId = useMemo(() => normalizeSubjectId(rawId), [rawId]);
   const subject = SUBJECTS[subjectId];
+  // Signed-in students pick from the backend's topics (the ones their mastery is tracked against).
+  const subjectTopics = useSubjectTopics(subjectId);
+  const topicNames = subjectTopics.names;
 
   // Canonicalize URL
   useEffect(() => {
@@ -99,7 +92,7 @@ export default function QuizPage() {
   const [backendQuizId, setBackendQuizId] = useState<number | null>(null);
   const [aiEventId, setAiEventId] = useState<number | string | null>(null);
   const [backendMode, setBackendMode] = useState(false);
-  const [startTime] = useState(Date.now());
+  const [startTime, setStartTime] = useState(Date.now());
 
   // user inputs
   const [topics, setTopics] = useState<string[]>([]);
@@ -108,10 +101,8 @@ export default function QuizPage() {
   const [types, setTypes] = useState<string[]>(["MCQ"]);
 
   useEffect(() => {
-    if (subject && subject.topics.length > 0) {
-      setTopics([subject.topics[0]]);
-    }
-  }, [subjectId]);
+    setTopics(topicNames.length > 0 ? [topicNames[0]] : []);
+  }, [subjectId, topicNames.join("|")]);
 
   const toggle = (list: string[], setList: (v: string[]) => void, item: string) =>
     setList(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
@@ -132,7 +123,7 @@ export default function QuizPage() {
       if (hasAuthToken()) {
         const { subjectId: backendSubjectId, topicIds } = await resolveBackendSubjectContext(
           subjectId,
-          topics.length ? topics : subject.topics.slice(0, 1)
+          topics.length ? topics : topicNames.slice(0, 1)
         );
 
         if (!topicIds.length) {
@@ -161,12 +152,13 @@ export default function QuizPage() {
             ? q.options.map((opt: any) => opt?.text ?? opt?.label ?? String(opt))
             : [],
           answer: "",
-          topic: (topics[0] || subject.topics[0] || "General"),
+          topic: (topics[0] || topicNames[0] || "General"),
           difficulty: (data?.quiz?.difficulty || difficulty).toString(),
           type: q.questionType || "MCQ",
         }));
 
         setQuestions(mapped);
+        setStartTime(Date.now()); // time the quiz itself, not the setup screen
       } else {
         const res = await fetch("/api/quiz", {
           method: "POST",
@@ -345,7 +337,9 @@ export default function QuizPage() {
                 Topics <span className="font-normal text-muted-foreground">· {topics.length} selected</span>
               </legend>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
-                {subject.topics.map((t) => (
+                {subjectTopics.loading && <p className="text-sm text-muted-foreground">Loading topics…</p>}
+                {subjectTopics.error && <p className="text-sm text-destructive">{subjectTopics.error}</p>}
+                {topicNames.map((t) => (
                   <label key={t} className={chip(topics.includes(t))}>
                     <Checkbox checked={topics.includes(t)} onCheckedChange={() => toggle(topics, setTopics, t)} />
                     <span>{t}</span>
@@ -426,9 +420,26 @@ export default function QuizPage() {
   // Backend results screen
   if (backendResult) {
     const pct = Math.round(backendResult.percentageScore ?? 0);
+    const secs = backendResult.durationSeconds || 0;
+    const missed = backendResult.questionResults.filter((r) => !r.isCorrect);
+    const short = (t: string) => (t.length > 70 ? `${t.slice(0, 67)}…` : t);
     return (
       <div className="min-h-screen bg-background">
-        <SapphyFab activity="quiz-results" subjectId={subjectId} />
+        <SapphyFab
+          activity="quiz-results"
+          subjectId={subjectId}
+          content={{
+            score: `${pct}%`,
+            verdict: backendResult.passed ? "Passed" : "Not passed yet",
+            verdictTone: backendResult.passed ? "ok" : "warn",
+            happy: backendResult.passed,
+            summary: `{name}, you got ${backendResult.correctQuestions} of ${backendResult.totalQuestions} right${
+              secs ? ` in ${Math.floor(secs / 60)}m ${secs % 60}s` : ""
+            }.${missed.length ? " Let's fix the ones you missed." : " Every answer correct!"}`,
+            good: backendResult.correctQuestions ? [`${backendResult.correctQuestions} correct ${backendResult.correctQuestions === 1 ? "answer" : "answers"}`] : [],
+            work: missed.slice(0, 3).map((r) => short(r.questionText)),
+          }}
+        />
         {header("Quiz results")}
         <main className="mx-auto flex max-w-[760px] flex-col gap-4 px-6 pb-16 pt-8">
           {/* Score badge */}

@@ -348,19 +348,17 @@ function CopyButton({ text }: { text: string }) {
 // Subject-specific starter chips
 // ---------------------------------------------------------------------------
 const STARTER_CHIPS: Record<string, string[]> = {
-  Mathematics: ["Solve a quadratic equation for me", "Explain differentiation step by step", "What are the laws of indices?", "How do I find the equation of a circle?"],
-  Chemistry: ["Balance this equation: H₂ + O₂ → H₂O", "Explain Le Chatelier's principle", "What is electronegativity?", "How do I calculate molar mass?"],
-  "English A": ["Analyse the poem 'The Cry of the Children'", "How do I write a good summary?", "What is juxtaposition? Give an example", "Tips for Paper 2 comprehension"],
-  Physics: ["Explain Newton's second law with examples", "How do I calculate resistance in parallel circuits?", "What is the Doppler effect?", "Explain projectile motion"],
-  "Pure Mathematics": ["Explain integration by parts", "How do I solve differential equations?", "What is the binomial theorem?", "Explain vectors in 3D"],
-  Biology: ["Explain DNA replication", "What happens during meiosis?", "How does the heart pump blood?", "Explain photosynthesis vs respiration"],
+  Mathematics: ["Solve a quadratic equation for me", "How do I work out compound interest?", "What are the laws of indices?", "Explain how to find the gradient of a line"],
+  "English A": ["How do I write a good summary?", "What is juxtaposition? Give an example", "How do I plan a persuasive essay?", "Tips for Paper 2 comprehension"],
+  "Caribbean Studies": ["What does 'the Caribbean' mean geographically and historically?", "Explain creolisation with an example", "How does tourism affect Caribbean development?", "How do I choose a topic for my IA?"],
+  "Communication Studies": ["How do I evaluate whether a source is reliable?", "Explain the Caribbean language situation", "What is the difference between register and dialect?", "How do I structure my portfolio?"],
 }
 
 function getStarterChips(subjectName: string): string[] {
   for (const [key, chips] of Object.entries(STARTER_CHIPS)) {
     if (subjectName.toLowerCase().includes(key.toLowerCase())) return chips
   }
-  return ["Explain a key concept", "Give me a worked example", "What topics appear most in CSEC exams?", "How do I improve my exam technique?"]
+  return ["Explain a key concept", "Give me a worked example", "What topics appear most in my exams?", "How do I improve my exam technique?"]
 }
 
 // ---------------------------------------------------------------------------

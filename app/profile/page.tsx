@@ -1,208 +1,145 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { analyticsService } from "@/lib/services/analytics"
-import { intelligenceEngine } from "@/lib/services/intelligence-engine"
 import { quizHistoryService } from "@/lib/services/quiz-history-service"
-import { useNextContent } from '@/lib/hooks/use-learning-intelligence'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { useProfileStats } from "@/lib/hooks/use-me"
+import { meService, taskRoute, type DailyTasks, type ProfileStats } from "@/lib/services/me-service"
+import { subjectIdForName } from "@/lib/data/subjects"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  User,
-  Award,
-  TrendingUp,
-  Clock,
-  AlertTriangle,
-  BookOpen,
-  Target,
-  Lightbulb,
-  Brain,
-  Flame,
-  ShieldCheck,
-} from "lucide-react"
-import { LearningDashboard } from '@/components/learning/LearningDashboard'
+import { User, Award, TrendingUp, Clock, AlertTriangle, Target, Brain, Flame, ShieldCheck, CheckCircle2, Circle } from "lucide-react"
 
-// SAMPLE: shown for the demo account (user_id 999), which has no backend data, so the page looks
-// like the design. Real accounts always show their own analytics, history and alerts.
-const DEMO_USER_ID = 999
-const DEMO_ANALYTICS = {
-  quiz_performance: { total_quizzes: 14, average_score: 74 },
-  flashcard_performance: { total_sessions: 9, average_recall: 0.68 },
-  current_streak: 6,
-  total_study_time: 312,
-  topic_mastery: [
-    { topic: "Statistics", subject_id: "csec-math", confidence_score: 86, practice_count: 9 },
-    { topic: "Sets", subject_id: "csec-math", confidence_score: 72, practice_count: 6 },
-    { topic: "Number theory", subject_id: "csec-math", confidence_score: 64, practice_count: 7 },
-    { topic: "Algebra", subject_id: "csec-math", confidence_score: 51, practice_count: 11 },
-    { topic: "Factorising", subject_id: "csec-math", confidence_score: 38, practice_count: 4 },
+// SAMPLE: the demo account (no backend session) shows the design's numbers in the same shape the
+// backend returns. Signed-in students only ever see their own data from GET /api/me/stats.
+const DEMO_STATS: ProfileStats = {
+  streak: { current: 6, best: 11, todayDone: false, atRisk: true, history: [] },
+  quizzesTaken: 14,
+  averageScore: 74,
+  flashcardSessions: 9,
+  reelsWatched: 12,
+  studyMinutes: 312,
+  thisWeekMinutes: 95,
+  lastWeekMinutes: 70,
+  recallStrength: 68,
+  topicMastery: [
+    { topicId: 1, topicName: "Statistics", subjectId: 1, subjectName: "Mathematics", mastery: 86, status: "mastered", attempts: 9 },
+    { topicId: 2, topicName: "Sets", subjectId: 1, subjectName: "Mathematics", mastery: 72, status: "reviewing", attempts: 6 },
+    { topicId: 3, topicName: "Number Theory", subjectId: 1, subjectName: "Mathematics", mastery: 64, status: "learning", attempts: 7 },
+    { topicId: 4, topicName: "Algebra", subjectId: 1, subjectName: "Mathematics", mastery: 51, status: "needs_review", attempts: 11 },
   ],
-  knowledge_gaps: ["Factorising"],
+  knowledgeGaps: [
+    { topicId: 4, topicName: "Algebra", subjectId: 1, subjectName: "Mathematics", mastery: 48, accuracy: 48, attempts: 11 },
+  ],
+  recentQuizzes: [
+    { id: 1, title: "Algebra quiz", subjectId: 1, subjectName: "Mathematics", difficulty: "Medium", score: 4, totalQuestions: 5, percentage: 80, completedAt: "2026-10-14T10:00:00" },
+    { id: 2, title: "Statistics quiz", subjectId: 1, subjectName: "Mathematics", difficulty: "Medium", score: 9, totalQuestions: 10, percentage: 90, completedAt: "2026-10-13T10:00:00" },
+    { id: 3, title: "Sets quiz", subjectId: 1, subjectName: "Mathematics", difficulty: "Easy", score: 7, totalQuestions: 10, percentage: 70, completedAt: "2026-10-08T10:00:00" },
+  ],
+  subjects: [{ subjectId: 1, subjectName: "Mathematics" }],
 }
-const DEMO_QUIZ_HISTORY = [
-  { subjectId: "csec-math", topic: "Algebra", completedAt: "2026-10-14", score: 80 },
-  { subjectId: "csec-math", topic: "Statistics", completedAt: "2026-10-13", score: 90 },
-  { subjectId: "csec-math", topic: "Factorising", completedAt: "2026-10-10", score: 45 },
-  { subjectId: "csec-math", topic: "Sets", completedAt: "2026-10-08", score: 70 },
-]
-const DEMO_RISK_ALERT = {
-  level: "medium",
-  title: "Factorising needs attention",
-  reason: "Your last three Algebra quizzes averaged 48% on factorising. Try a 10-card flashcard drill on it this week.",
-  intervention_suggestions: [] as string[],
+
+const STATUS_LABEL: Record<string, string> = {
+  mastered: "Mastered",
+  reviewing: "Reviewing",
+  learning: "Learning",
+  needs_review: "Needs practice",
+  not_started: "Not started",
 }
+
+const STYLE_LABEL: Record<string, string> = {
+  visual: "Visual",
+  auditory: "Auditory",
+  kinesthetic: "Hands-on",
+  reading: "Reading and writing",
+}
+
+const STYLE_TIPS: Record<string, string[]> = {
+  visual: ["Watch a study reel before starting a new topic", "Turn your notes into mind maps"],
+  auditory: ["Explain each topic out loud to Sapphy", "Read your notes aloud before a quiz"],
+  kinesthetic: ["Start topics with a short quiz", "Do lots of practice questions"],
+  reading: ["Rewrite each topic in your own words", "Make flashcards from your notes"],
+}
+
+const masteryTone = (level: number) => {
+  if (level >= 80) return "border-status-success/30 bg-status-success-subtle text-status-success"
+  if (level >= 60) return "border-primary/30 bg-primary/10 text-primary-strong"
+  if (level >= 40) return "border-status-warning/40 bg-status-warning-subtle text-status-warning"
+  return "border-destructive/30 bg-status-danger-subtle text-destructive"
+}
+
+const formatDate = (iso: string | null) =>
+  iso ? new Date(iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`).toLocaleDateString() : ""
+
+const minutes = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`)
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { user, isLoading: authLoading, isDemo } = useAuth()
   const router = useRouter()
-  const [analytics, setAnalytics] = useState<any>(null)
-  const [intelligence, setIntelligence] = useState<any>(null)
-  const [quizHistory, setQuizHistory] = useState<any[]>([])
-  const [flashcardHistory, setFlashcardHistory] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [historyLoading, setHistoryLoading] = useState(false)
-  const { recommendation } = useNextContent(user?.id || null, undefined)
-  const isDemo = user?.user_id === DEMO_USER_ID
+  const { data, loading, error, refresh } = useProfileStats(!!user && !isDemo)
+  const [flashcards, setFlashcards] = useState<any[]>([])
+  const [today, setToday] = useState<DailyTasks | null>(null)
 
   useEffect(() => {
-    if (!user) {
-      router.push("/")
-      return
-    }
+    if (!authLoading && !user) router.push("/")
+  }, [authLoading, user, router])
 
-    // Load analytics and intelligence data
-    const loadData = async () => {
-      try {
-        setIsLoading(true)
-        const analyticsData = isDemo ? DEMO_ANALYTICS : analyticsService.getAnalytics(user.user_id)
-        const intelligenceData = intelligenceEngine.getLearningIntelligence(user.user_id, "csec-math")
-        setAnalytics(analyticsData)
-        setIntelligence(
-          isDemo
-            ? {
-                ...intelligenceData,
-                personalized_actions: { ...intelligenceData?.personalized_actions, risk_alerts: DEMO_RISK_ALERT },
-              }
-            : intelligenceData,
-        )
+  useEffect(() => {
+    if (!user || isDemo) return
+    quizHistoryService.getFlashcardHistory(user.user_id, 20).then(setFlashcards).catch(() => setFlashcards([]))
+    meService
+      .dailyTasks()
+      .then((r) => setToday(r.dailyTasks))
+      .catch(() => setToday(null))
+  }, [user, isDemo])
 
-        // Render profile immediately; history can hydrate after first paint.
-        setIsLoading(false)
-        setHistoryLoading(true)
+  const stats: ProfileStats | null = isDemo ? DEMO_STATS : data
+  const subjectNames = useMemo(
+    () => new Map((stats?.subjects ?? []).map((s) => [s.subjectId, s.subjectName])),
+    [stats],
+  )
 
-        const [quizData, flashcardData] = await Promise.all([
-          quizHistoryService.getQuizHistory(user.user_id, 20),
-          quizHistoryService.getFlashcardHistory(user.user_id, 20),
-        ])
-        setQuizHistory(isDemo && !quizData.length ? DEMO_QUIZ_HISTORY : quizData)
-        setFlashcardHistory(flashcardData)
-      } catch (error) {
-        console.error("Failed to load profile data:", error)
-        if (isDemo) setQuizHistory(DEMO_QUIZ_HISTORY)
-      } finally {
-        setHistoryLoading(false)
-        setIsLoading(false)
-      }
-    }
+  if (!user) return null
 
-    loadData()
-  }, [user, router])
-
-  if (!user) {
-    return null
+  const levelKey = String(user.level || (typeof window !== "undefined" ? localStorage.getItem("selectedLevel") : "") || "csec").toUpperCase()
+  const workspaceFor = (subjectName: string | null | undefined, tool = "") => {
+    const id = subjectIdForName(subjectName)
+    return id ? `/workspace/${id}${tool ? `/${tool}` : ""}` : "/dashboard"
   }
 
-  // The demo account has no level on the user record, so use the one picked on the level screen
-  const levelKey = String(
-    user.level || (typeof window !== "undefined" ? localStorage.getItem("selectedLevel") : "") || "csec",
-  ).toLowerCase()
-
-  if (isLoading) {
+  if (!stats) {
     return (
-      <div className="container mx-auto p-6 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Brain className="w-12 h-12 text-primary mx-auto mb-4 animate-pulse" />
-          <p className="text-muted-foreground">Loading your learning profile...</p>
-        </div>
+      <div className="container mx-auto flex min-h-screen items-center justify-center p-6">
+        {error ? (
+          <Card className="max-w-md rounded-2xl">
+            <CardContent className="space-y-3 pt-6 text-center">
+              <p className="text-muted-foreground">Couldn't load your learning profile. {error}</p>
+              <Button className="min-h-11" onClick={refresh}>
+                Try again
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="text-center">
+            <Brain className="mx-auto mb-4 h-12 w-12 animate-pulse text-primary" />
+            <p className="text-muted-foreground">{loading ? "Loading your learning profile..." : "Getting things ready..."}</p>
+          </div>
+        )}
       </div>
     )
   }
 
-  if (!analytics) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              No learning data available yet. Start taking quizzes and studying to build your profile!
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  const getMasteryColor = (level: number) => {
-    if (level >= 80) return "border-status-success/30 bg-status-success-subtle text-status-success"
-    if (level >= 60) return "border-primary/30 bg-primary/10 text-primary-strong"
-    if (level >= 40) return "border-status-warning/40 bg-status-warning-subtle text-status-warning"
-    return "border-destructive/30 bg-status-danger-subtle text-destructive"
-  }
-
-  const getMasteryLabel = (level: number) => {
-    if (level >= 80) return "Mastered"
-    if (level >= 60) return "Proficient"
-    if (level >= 40) return "Learning"
-    return "Needs Practice"
-  }
-
-  const getRiskBadgeColor = (level: string) => {
-    if (level === "high") return "destructive" as const
-    if (level === "medium") return "secondary" as const
-    return "outline" as const
-  }
-
-  const getQuizHistory = () => {
-    // Use real backend data if available, otherwise fall back to intelligence engine
-    if (quizHistory && quizHistory.length > 0) {
-      return quizHistory.map((quiz) => ({
-        subject_id: `subject-${quiz.subjectId}`,
-        topic: quiz.topic,
-        completed_at: quiz.completedAt,
-        score: quiz.score
-      }))
-    }
-    return intelligence?.student_signals?.recent_quizzes || []
-  }
-
-  const getFlashcardHistory = () => {
-    // Use real backend data if available, otherwise fall back to intelligence engine
-    if (flashcardHistory && flashcardHistory.length > 0) {
-      return flashcardHistory.map((session) => ({
-        subject_id: `subject-${session.subjectId}`,
-        topic: session.topic,
-        completed_at: session.completedAt,
-        cards_studied: session.cardsStudied,
-        cards_mastered: session.cardsMastered,
-        mastery_rate: session.masteryRate
-      }))
-    }
-    return intelligence?.student_signals?.recent_flashcards || []
-  }
+  const gap = stats.knowledgeGaps[0]
+  const weekDelta = stats.thisWeekMinutes - stats.lastWeekMinutes
+  const style = user.learning_style ?? null
 
   return (
     <div className="min-h-screen bg-background">
@@ -210,493 +147,395 @@ export default function ProfilePage() {
         <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")} className="min-h-11 shadow-none">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
             </Button>
             <span className="h-6 w-px bg-border" />
             <h1 className="text-lg font-semibold">Learning Profile</h1>
           </div>
-          {user?.accountType === "admin" && (
+          {user.accountType === "admin" && (
             <Button variant="outline" size="sm" onClick={() => router.push("/admin")} className="min-h-11 shadow-none">
-              <ShieldCheck className="w-4 h-4 mr-2" />
+              <ShieldCheck className="mr-2 h-4 w-4" />
               Admin console
             </Button>
           )}
         </div>
       </header>
-      <div className="container mx-auto p-6 pt-7 max-w-7xl">
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* User Info Card */}
-        <Card className="rounded-2xl">
-          <CardHeader className="text-center pb-4">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-sky mx-auto mb-4 flex items-center justify-center text-3xl font-bold text-white">
-              {`${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() || <User className="w-12 h-12" />}
-            </div>
-            <CardTitle>{user.first_name} {user.last_name}</CardTitle>
-            <CardDescription>{user.email}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="container mx-auto max-w-7xl p-6 pt-7">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* User card */}
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-4 text-center">
+              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-primary to-sky text-3xl font-bold text-white">
+                {`${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() || <User className="h-12 w-12" />}
+              </div>
+              <CardTitle>
+                {user.first_name} {user.last_name}
+              </CardTitle>
+              <CardDescription>{user.email}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Age</p>
+                  <p className="font-semibold">{user.age ? `${user.age} years` : "–"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Level</p>
+                  <p className="font-semibold">{levelKey}</p>
+                </div>
+              </div>
               <div>
-                <p className="text-muted-foreground">Age</p>
-                <p className="font-semibold">{user.age} years</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Level</p>
-                <p className="font-semibold">{levelKey.toUpperCase()}</p>
-              </div>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Learning Style</p>
-              <Badge className="mt-1 border-transparent bg-primary/10 text-primary-strong">{user.learning_style}</Badge>
-            </div>
-            {user.user_id === 999 && (
-              <Badge variant="secondary" className="w-full justify-center">
-                Demo Account
-              </Badge>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Quick Stats */}
-        <Card className="rounded-2xl lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Quick Stats</CardTitle>
-            <CardDescription>Your learning at a glance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-primary/5 rounded-lg">
-                <div className="text-2xl font-bold text-primary">
-                  {analytics.quiz_performance.total_quizzes}
-                </div>
-                <div className="text-xs text-muted-foreground">Quizzes</div>
-              </div>
-              <div className="text-center p-3 bg-primary/5 rounded-lg">
-                <div className="text-2xl font-bold text-primary">
-                  {analytics.flashcard_performance.total_sessions}
-                </div>
-                <div className="text-xs text-muted-foreground">Flashcards</div>
-              </div>
-              <div className="text-center p-3 bg-primary/5 rounded-lg">
-                <Flame className="w-6 h-6 text-streak mx-auto mb-1" />
-                <div className="text-2xl font-bold text-streak">
-                  {analytics.current_streak}
-                </div>
-                <div className="text-xs text-muted-foreground">Day Streak</div>
-              </div>
-              <div className="text-center p-3 bg-primary/5 rounded-lg">
-                <Clock className="w-6 h-6 text-primary mx-auto mb-1" />
-                <div className="text-2xl font-bold text-primary">
-                  {Math.round(analytics.total_study_time)}m
-                </div>
-                <div className="text-xs text-muted-foreground">Study Time</div>
-              </div>
-            </div>
-
-            {/* Performance Overview */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="text-xs text-muted-foreground mb-2">Average Quiz Score</div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-lg font-semibold">
-                    {Math.round(analytics.quiz_performance.average_score)}%
-                  </span>
-                </div>
-                <Progress value={analytics.quiz_performance.average_score} className="h-2" />
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-xs text-muted-foreground mb-2">Flashcard Recall</div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-lg font-semibold">
-                    {Math.round(analytics.flashcard_performance.average_recall * 100)}%
-                  </span>
-                </div>
-                <Progress
-                  value={analytics.flashcard_performance.average_recall * 100}
-                  className="h-2"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Risk Alert (if applicable) */}
-        {intelligence?.personalized_actions?.risk_alerts &&
-         intelligence.personalized_actions.risk_alerts.level &&
-         intelligence.personalized_actions.risk_alerts.level !== "none" && (
-          <div
-            role="alert"
-            className="flex flex-wrap items-start gap-2.5 rounded-xl border border-status-warning/40 bg-status-warning-subtle p-3.5 text-sm lg:col-span-3"
-          >
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
-            <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
-              <b className="font-semibold">
-                {intelligence.personalized_actions.risk_alerts.title ?? "Learning alert"}{" "}
-                <Badge variant={getRiskBadgeColor(intelligence.personalized_actions.risk_alerts.level)} className="ml-1 align-middle">
-                  {intelligence.personalized_actions.risk_alerts.level.toUpperCase()} RISK
+                <p className="text-sm text-muted-foreground">Learning style</p>
+                <Badge className="mt-1 border-transparent bg-primary/10 text-primary-strong">
+                  {style ? STYLE_LABEL[style] : "Not set yet"}
                 </Badge>
-              </b>
-              <span className="text-muted-foreground">{intelligence.personalized_actions.risk_alerts.reason}</span>
-              {intelligence.personalized_actions.risk_alerts.intervention_suggestions?.length ? (
-                <ul className="mt-1 list-inside list-disc text-muted-foreground">
-                  {intelligence.personalized_actions.risk_alerts.intervention_suggestions.map((suggestion: string, i: number) => (
-                    <li key={i}>{suggestion}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-            <Button variant="outline" size="sm" className="min-h-11 shadow-none" onClick={() => router.push(`/workspace/${levelKey}-math/flashcards`)}>
-              Start drill
-            </Button>
-          </div>
-        )}
+              </div>
+              {isDemo && (
+                <Badge variant="secondary" className="w-full justify-center">
+                  Demo account · sample numbers
+                </Badge>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Main Tabs */}
-        <div className="lg:col-span-3">
-          <Tabs defaultValue="mastery" className="w-full">
-            <TabsList className="grid w-full max-w-[640px] grid-cols-4 rounded-xl">
-              <TabsTrigger value="mastery">Mastery</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
-              <TabsTrigger value="insights">Insights</TabsTrigger>
-              <TabsTrigger value="recommendations">Next steps</TabsTrigger>
-            </TabsList>
-
-            {/* Mastery Tab */}
-            <TabsContent value="mastery" className="space-y-4">
-              <div className="flex flex-wrap items-start gap-6">
-              <Card className="min-w-0 flex-[999_1_520px] rounded-2xl">
-                <CardHeader>
-                  <CardTitle>Topic Mastery Levels</CardTitle>
-                  <CardDescription>Your progress across different topics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {analytics.topic_mastery.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-6">
-                      No topic data yet. Complete quizzes to track your mastery levels.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {analytics.topic_mastery.map((topic: any) => (
-                        <div key={topic.topic} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="font-medium">{topic.topic}</span>
-                              <p className="text-xs text-muted-foreground">{topic.subject_id}</p>
-                            </div>
-                            <Badge variant="outline" className={cn("rounded-full", getMasteryColor(topic.confidence_score))}>
-                              {getMasteryLabel(topic.confidence_score)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground mb-1">
-                            <span>{topic.confidence_score}% confidence</span>
-                            <span>•</span>
-                            <span>{topic.practice_count} sessions</span>
-                          </div>
-                          <Progress value={topic.confidence_score} className="h-2" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="flex-[1_1_300px] rounded-2xl">
-                <CardHeader>
-                  <CardTitle>Recent quizzes</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {getQuizHistory().length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No quizzes yet. Take your first quiz to see it here.</p>
-                  ) : (
-                    getQuizHistory().slice(0, 4).map((quiz: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
-                        <div>
-                          <p className="font-medium">{quiz.topic}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(quiz.completed_at).toLocaleDateString()}</p>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={cn("rounded-full tabular-nums", getMasteryColor(quiz.score))}
-                        >
-                          {Math.round(quiz.score)}%
-                        </Badge>
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
+          {/* Quick stats */}
+          <Card className="rounded-2xl lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Quick stats</CardTitle>
+              <CardDescription>Your learning at a glance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="rounded-lg bg-primary/5 p-3 text-center">
+                  <div className="text-2xl font-bold text-primary tabular-nums">{stats.quizzesTaken}</div>
+                  <div className="text-xs text-muted-foreground">Quizzes</div>
+                </div>
+                <div className="rounded-lg bg-primary/5 p-3 text-center">
+                  <div className="text-2xl font-bold text-primary tabular-nums">{stats.flashcardSessions}</div>
+                  <div className="text-xs text-muted-foreground">Flashcard sessions</div>
+                </div>
+                <div className="rounded-lg bg-primary/5 p-3 text-center">
+                  <Flame className="mx-auto mb-1 h-6 w-6 text-streak" />
+                  <div className="text-2xl font-bold text-streak tabular-nums">{stats.streak.current}</div>
+                  <div className="text-xs text-muted-foreground">Day streak · best {stats.streak.best}</div>
+                </div>
+                <div className="rounded-lg bg-primary/5 p-3 text-center">
+                  <Clock className="mx-auto mb-1 h-6 w-6 text-primary" />
+                  <div className="text-2xl font-bold text-primary tabular-nums">{minutes(stats.studyMinutes)}</div>
+                  <div className="text-xs text-muted-foreground">Study time</div>
+                </div>
               </div>
 
-              {/* Knowledge Gaps */}
-              {analytics.knowledge_gaps && analytics.knowledge_gaps.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Target className="w-5 h-5" />
-                      Knowledge Gaps
-                    </CardTitle>
-                    <CardDescription>Areas that need more attention</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {analytics.knowledge_gaps.map((gap: string, i: number) => (
-                        <Badge key={i} variant="outline" className="bg-destructive/10">
-                          {gap}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="mb-2 text-xs text-muted-foreground">Average quiz score</div>
+                  <span className="text-lg font-semibold">{stats.averageScore != null ? `${Math.round(stats.averageScore)}%` : "No quizzes yet"}</span>
+                  <Progress value={stats.averageScore ?? 0} className="h-2" />
+                </div>
+                <div className="space-y-2">
+                  <div className="mb-2 text-xs text-muted-foreground">Recall strength</div>
+                  <span className="text-lg font-semibold">{stats.recallStrength != null ? `${stats.recallStrength}%` : "Builds as you practise"}</span>
+                  <Progress value={stats.recallStrength ?? 0} className="h-2" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* History Tab */}
-            <TabsContent value="history" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quiz History</CardTitle>
-                  <CardDescription>Your recent quiz performances</CardDescription>
-                  {historyLoading ? <p className="text-xs text-muted-foreground">Syncing latest history...</p> : null}
-                </CardHeader>
-                <CardContent>
-                  {getQuizHistory().length === 0 ? (
-                    <p className="text-center text-muted-foreground py-6">
-                      No quiz history yet. Take your first quiz to get started!
-                    </p>
-                  ) : (
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-4">
-                        {getQuizHistory().map((quiz: any, i: number) => (
-                          <div
-                            key={i}
-                            className="flex items-start justify-between border-b pb-3 last:border-0"
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline">{quiz.subject_id}</Badge>
-                                <span className="text-sm font-medium">
-                                  {quiz.topic}
+          {/* Weakest topic */}
+          {gap && (
+            <div role="alert" className="flex flex-wrap items-start gap-2.5 rounded-xl border border-status-warning/40 bg-status-warning-subtle p-3.5 text-sm lg:col-span-3">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
+              <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
+                <b className="font-semibold">{gap.topicName ?? "A topic"} needs attention</b>
+                <span className="text-muted-foreground">
+                  {gap.subjectName}: {gap.mastery}% mastery after {gap.attempts} attempts. A short flashcard round will help.
+                </span>
+              </div>
+              <Button variant="outline" size="sm" className="min-h-11 shadow-none" onClick={() => router.push(workspaceFor(gap.subjectName, "flashcards"))}>
+                Start drill
+              </Button>
+            </div>
+          )}
+
+          <div className="lg:col-span-3">
+            <Tabs defaultValue="mastery" className="w-full">
+              <TabsList className="grid w-full max-w-[640px] grid-cols-4 rounded-xl">
+                <TabsTrigger value="mastery">Mastery</TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+                <TabsTrigger value="insights">Insights</TabsTrigger>
+                <TabsTrigger value="next">Next steps</TabsTrigger>
+              </TabsList>
+
+              {/* Mastery */}
+              <TabsContent value="mastery" className="space-y-4">
+                <div className="flex flex-wrap items-start gap-6">
+                  <Card className="min-w-0 flex-[999_1_520px] rounded-2xl">
+                    <CardHeader>
+                      <CardTitle>Topic mastery</CardTitle>
+                      <CardDescription>Topics you've practised most recently</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {stats.topicMastery.length === 0 ? (
+                        <p className="py-6 text-center text-muted-foreground">No topic data yet. Take a quiz or a flashcard round to start tracking mastery.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {stats.topicMastery.map((t) => (
+                            <div key={`${t.subjectId}-${t.topicId}`} className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium">{t.topicName ?? "Topic"}</span>
+                                  <p className="text-xs text-muted-foreground">{t.subjectName}</p>
+                                </div>
+                                <Badge variant="outline" className={cn("rounded-full", masteryTone(t.mastery))}>
+                                  {STATUS_LABEL[t.status] ?? t.status}
+                                </Badge>
+                              </div>
+                              <div className="mb-1 flex items-center gap-4 text-xs text-muted-foreground">
+                                <span>{t.mastery}% mastery</span>
+                                <span>•</span>
+                                <span>
+                                  {t.attempts} {t.attempts === 1 ? "attempt" : "attempts"}
                                 </span>
                               </div>
-                              <div className="flex gap-4 text-xs text-muted-foreground">
-                                <span>{new Date(quiz.completed_at).toLocaleDateString()}</span>
-                                <span>•</span>
-                                <span>{quiz.score}% score</span>
-                              </div>
+                              <Progress value={t.mastery} className="h-2" />
                             </div>
-                            <Badge
-                              variant={quiz.score >= 80 ? "default" : quiz.score >= 60 ? "secondary" : "destructive"}
-                            >
-                              {Math.round(quiz.score)}%
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Flashcard Sessions</CardTitle>
-                  <CardDescription>Your flashcard practice history</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {getFlashcardHistory().length === 0 ? (
-                    <p className="text-center text-muted-foreground py-6">
-                      No flashcard sessions yet. Start practicing to track your progress!
-                    </p>
-                  ) : (
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-4">
-                        {getFlashcardHistory().map((session: any, i: number) => (
-                          <div
-                            key={i}
-                            className="flex items-start justify-between border-b pb-3 last:border-0"
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline">{session.subject_id}</Badge>
-                                <span className="text-sm font-medium">{session.topic}</span>
-                              </div>
-                              <div className="flex gap-4 text-xs text-muted-foreground">
-                                <span>{new Date(session.completed_at).toLocaleDateString()}</span>
-                                <span>•</span>
-                                <span>{session.cards_studied} cards</span>
-                                <span>•</span>
-                                <span>{session.cards_mastered} mastered</span>
-                              </div>
-                            </div>
-                            <Badge variant="secondary">
-                              {Math.round(session.mastery_rate * 100)}%
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Insights Tab */}
-            <TabsContent value="insights" className="space-y-4">
-              {intelligence?.personalized_actions?.pacing_guidance && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5" />
-                      Learning Pace
-                    </CardTitle>
-                    <CardDescription>Personalized pacing recommendations</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <Lightbulb className="w-5 h-5 text-accent-foreground mt-0.5" />
-                      <div>
-                        <p className="font-medium text-sm">
-                          {intelligence.personalized_actions.pacing_guidance.should_advance
-                            ? "Ready to Advance!"
-                            : "Keep Practicing"}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {intelligence.personalized_actions.pacing_guidance.recommendation}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {intelligence?.personalized_actions?.study_guidance && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="w-5 h-5" />
-                      Study Guidance
-                    </CardTitle>
-                    <CardDescription>Personalized tips for effective learning</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm">
-                        {intelligence.personalized_actions.study_guidance.motivation_message}
-                      </p>
-                    </div>
-
-                    {intelligence.personalized_actions.study_guidance.daily_goal && (
-                      <div className="p-3 bg-primary/5 rounded-lg">
-                        <p className="text-sm font-medium mb-1">Today's Goal</p>
-                        <p className="text-sm">{intelligence.personalized_actions.study_guidance.daily_goal}</p>
-                      </div>
-                    )}
-
-                    {intelligence.personalized_actions.study_guidance.break_reminder && (
-                      <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <Clock className="w-4 h-4 mt-0.5" />
-                        <p>{intelligence.personalized_actions.study_guidance.break_reminder}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {intelligence?.personalized_actions?.feedback && 
-               intelligence.personalized_actions.feedback.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Award className="w-5 h-5" />
-                      Targeted Feedback
-                    </CardTitle>
-                    <CardDescription>Insights based on your recent performance</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {intelligence.personalized_actions.feedback.map((item: any, i: number) => (
-                        <div key={i} className="p-3 bg-muted rounded-lg">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline">{item.topic}</Badge>
-                            <Badge variant={item.sentiment === "positive" ? "default" : "secondary"}>
-                              {item.sentiment}
-                            </Badge>
-                          </div>
-                          <p className="text-sm">{item.message}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Recommendations Tab */}
-            <TabsContent value="recommendations">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Brain className="w-5 h-5" />
-                    Personalized Recommendations
-                  </CardTitle>
-                  <CardDescription>AI-powered suggestions for your next steps</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {intelligence?.personalized_actions?.content_recommendations && (
-                    <>
-                      <div>
-                        <h4 className="font-medium text-sm mb-2">Next Study Suggestion</h4>
-                        <div className="p-4 bg-primary/5 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium">
-                              {intelligence.personalized_actions.content_recommendations.next_study_suggestion.topic}
-                            </span>
-                            <Badge>
-                              {intelligence.personalized_actions.content_recommendations.next_study_suggestion.priority} priority
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {intelligence.personalized_actions.content_recommendations.next_study_suggestion.reason}
-                          </p>
-                          <div className="flex gap-2 mt-3">
-                            <Button size="sm" onClick={() => router.push(`/workspace/${levelKey}-math/quiz`)}>
-                              Take Quiz
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => router.push(`/workspace/${levelKey}-math/flashcards`)}>
-                              Practice Flashcards
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {intelligence.personalized_actions.content_recommendations.recommended_topics.length > 0 && (
-                        <div>
-                          <h4 className="font-medium text-sm mb-2">Focus Topics</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {intelligence.personalized_actions.content_recommendations.recommended_topics.map((topic: string, i: number) => (
-                              <Badge key={i} variant="outline">
-                                {topic}
-                              </Badge>
-                            ))}
-                          </div>
+                          ))}
                         </div>
                       )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+                    </CardContent>
+                  </Card>
 
-        {/* Learning Intelligence Dashboard */}
-        <div className="lg:col-span-3">
-          <LearningDashboard userId={user.user_id} />
+                  <Card className="flex-[1_1_300px] rounded-2xl">
+                    <CardHeader>
+                      <CardTitle>Recent quizzes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {stats.recentQuizzes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No quizzes yet. Take your first quiz to see it here.</p>
+                      ) : (
+                        stats.recentQuizzes.slice(0, 4).map((q) => (
+                          <div key={q.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
+                            <div>
+                              <p className="font-medium">{q.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {q.subjectName} · {formatDate(q.completedAt)}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className={cn("rounded-full tabular-nums", masteryTone(q.percentage ?? 0))}>
+                              {q.percentage != null ? `${Math.round(q.percentage)}%` : "–"}
+                            </Badge>
+                          </div>
+                        ))
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {stats.knowledgeGaps.length > 0 && (
+                  <Card className="rounded-2xl">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Target className="h-5 w-5" />
+                        Knowledge gaps
+                      </CardTitle>
+                      <CardDescription>Topics under 60% after several attempts</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {stats.knowledgeGaps.map((g) => (
+                          <Link key={`${g.subjectId}-${g.topicId}`} href={workspaceFor(g.subjectName, "quiz")}>
+                            <Badge variant="outline" className="bg-destructive/10">
+                              {g.topicName} · {g.mastery}%
+                            </Badge>
+                          </Link>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              {/* History */}
+              <TabsContent value="history" className="space-y-4">
+                <Card className="rounded-2xl">
+                  <CardHeader>
+                    <CardTitle>Quiz history</CardTitle>
+                    <CardDescription>Your recent quiz results</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {stats.recentQuizzes.length === 0 ? (
+                      <p className="py-6 text-center text-muted-foreground">No quiz history yet.</p>
+                    ) : (
+                      <ScrollArea className="h-[300px]">
+                        <div className="space-y-4">
+                          {stats.recentQuizzes.map((q) => (
+                            <div key={q.id} className="flex items-start justify-between border-b pb-3 last:border-0">
+                              <div className="flex-1">
+                                <div className="mb-1 flex items-center gap-2">
+                                  <Badge variant="outline">{q.subjectName}</Badge>
+                                  <span className="text-sm font-medium">{q.title}</span>
+                                </div>
+                                <div className="flex gap-4 text-xs text-muted-foreground">
+                                  <span>{formatDate(q.completedAt)}</span>
+                                  <span>•</span>
+                                  <span>
+                                    {q.score} of {q.totalQuestions} correct · {q.difficulty}
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge variant={(q.percentage ?? 0) >= 80 ? "default" : (q.percentage ?? 0) >= 50 ? "secondary" : "destructive"}>
+                                {q.percentage != null ? `${Math.round(q.percentage)}%` : "–"}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl">
+                  <CardHeader>
+                    <CardTitle>Flashcard sessions</CardTitle>
+                    <CardDescription>Your flashcard practice</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isDemo || flashcards.length === 0 ? (
+                      <p className="py-6 text-center text-muted-foreground">
+                        {isDemo ? "Flashcard history appears here for signed-in accounts." : "No flashcard sessions yet."}
+                      </p>
+                    ) : (
+                      <ScrollArea className="h-[300px]">
+                        <div className="space-y-4">
+                          {flashcards.map((s: any) => (
+                            <div key={s.id} className="flex items-start justify-between border-b pb-3 last:border-0">
+                              <div className="flex-1">
+                                <div className="mb-1 flex items-center gap-2">
+                                  <Badge variant="outline">{subjectNames.get(s.subjectId) ?? "Subject"}</Badge>
+                                </div>
+                                <div className="flex gap-4 text-xs text-muted-foreground">
+                                  <span>{formatDate(s.completedAt)}</span>
+                                  <span>•</span>
+                                  <span>
+                                    {s.cardsMastered} of {s.cardsStudied} cards remembered
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge variant="secondary">{Math.round((s.masteryRate || 0) * 100)}%</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Insights */}
+              <TabsContent value="insights" className="space-y-4">
+                <Card className="rounded-2xl">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
+                      This week
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <p>
+                      You've studied <b>{minutes(stats.thisWeekMinutes)}</b> this week
+                      {weekDelta > 0
+                        ? `, ${minutes(weekDelta)} more than last week. Great momentum!`
+                        : weekDelta < 0
+                          ? `, ${minutes(-weekDelta)} less than last week.`
+                          : stats.lastWeekMinutes
+                            ? ", the same as last week."
+                            : "."}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {stats.streak.todayDone
+                        ? `Today already counts towards your ${stats.streak.current}-day streak.`
+                        : stats.streak.current
+                          ? `Finish one of today's tasks to keep your ${stats.streak.current}-day streak.`
+                          : "Finish one of Sapphy's daily tasks today to start a streak."}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {stats.reelsWatched} study {stats.reelsWatched === 1 ? "reel" : "reels"} watched so far.
+                    </p>
+                  </CardContent>
+                </Card>
+                {style && (
+                  <Card className="rounded-2xl">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Award className="h-5 w-5" />
+                        Tips for a {STYLE_LABEL[style].toLowerCase()} learner
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                        {STYLE_TIPS[style].map((tip) => (
+                          <li key={tip}>{tip}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              {/* Next steps */}
+              <TabsContent value="next">
+                <Card className="rounded-2xl">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="h-5 w-5" />
+                      Today's tasks from Sapphy
+                    </CardTitle>
+                    <CardDescription>Picked from your own results. Finish one to keep your streak.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {isDemo || !today || today.tasks.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        {isDemo ? "Your daily tasks appear on the dashboard." : "No tasks yet. Add a subject on the dashboard to get started."}
+                      </p>
+                    ) : (
+                      today.tasks.map((t) => {
+                        const seg = taskRoute(t.type)
+                        return (
+                          <Link
+                            key={t.id}
+                            href={workspaceFor(t.subjectName, seg)}
+                            className="flex min-h-11 items-center gap-3 rounded-xl border bg-card px-4 py-3 hover:border-primary/50"
+                          >
+                            {t.done ? (
+                              <CheckCircle2 className="size-5 shrink-0 text-status-success" aria-label="Done" />
+                            ) : (
+                              <Circle className="size-5 shrink-0 text-muted-foreground" aria-label="Not done yet" />
+                            )}
+                            <span className={cn("flex-1 font-medium", t.done && "line-through")}>{t.title}</span>
+                            <span className="text-xs text-muted-foreground">{t.subjectName}</span>
+                          </Link>
+                        )
+                      })
+                    )}
+                    {stats.knowledgeGaps.length > 0 && (
+                      <div className="pt-3">
+                        <h4 className="mb-2 text-sm font-medium">Focus topics</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {stats.knowledgeGaps.map((g) => (
+                            <Button key={`${g.subjectId}-${g.topicId}`} size="sm" variant="outline" className="min-h-11 shadow-none" asChild>
+                              <Link href={workspaceFor(g.subjectName, "quiz")}>Quiz: {g.topicName}</Link>
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
-      </div>
       </div>
     </div>
   )

@@ -178,6 +178,27 @@ export class ApiClient {
     }
   }
 
+  async patch<T>(endpoint: string, data?: any): Promise<T> {
+    try {
+      const res = await this.fetchWithRetry(`${this.baseUrl}${endpoint}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data ?? {}),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw this.mapErrorStatus(res.status, body);
+      }
+
+      return res.json();
+    } catch (error: any) {
+      if (error.status) throw error;
+      const networkError: any = new Error(`Failed to connect to backend at ${this.baseUrl}. Please check your connection.`);
+      networkError.name = 'NetworkError';
+      throw networkError;
+    }
+  }
+
   async delete<T>(endpoint: string): Promise<T> {
     try {
       const res = await this.fetchWithRetry(`${this.baseUrl}${endpoint}`, {

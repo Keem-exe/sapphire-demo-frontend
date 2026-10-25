@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { SUBJECTS, type SubjectId } from "@/lib/data/subjects";
+import { SUBJECTS, normalizeSubjectId } from "@/lib/data/subjects";
+import { useSubjectTopics } from "@/lib/services/subject-topics";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,19 +20,6 @@ import { hasAuthToken, resolveBackendSubjectContext } from "@/lib/services/backe
 import { useToast } from "@/hooks/use-toast";
 import { SapphyFab } from "@/components/sapphy-fab"
 import { ArrowLeft, Layers, Play, Trophy } from "lucide-react";
-
-// Map legacy/alias route IDs to canonical SUBJECTS keys
-const normalizeSubjectId = (id: string): SubjectId => {
-  const map: Record<string, SubjectId> = {
-    "csec-1": "csec-math",
-    "csec-2": "csec-chem",
-    "csec-3": "csec-eng",
-    "cape-1": "cape-puremath",
-    "cape-2": "cape-phys",
-    "cape-3": "cape-bio",
-  } as const;
-  return (map[id] || id) as SubjectId;
-};
 
 type Flashcard = {
   id: string;
@@ -85,6 +73,8 @@ export default function FlashcardsPage() {
   }, [rawId, canonicalId, router]);
 
   const subject = SUBJECTS[canonicalId];
+  const subjectTopics = useSubjectTopics(canonicalId);
+  const topicNames = subjectTopics.names;
   const [topics, setTopics] = useState<string[]>([]);
   const [count, setCount] = useState<number>(20);
   const [learningStyle] = useState<string>("mixed"); // replace if you store user profile elsewhere
@@ -139,7 +129,21 @@ export default function FlashcardsPage() {
     return (
       <div className="min-h-screen bg-background">
         {header}
-        <SapphyFab activity="flashcards" subjectId={canonicalId} />
+        <SapphyFab
+          activity="flashcards"
+          subjectId={canonicalId}
+          content={{
+            score: `${pct}%`,
+            verdict: pct >= 70 ? "Great recall" : "Keep practising",
+            verdictTone: pct >= 70 ? "ok" : "warn",
+            happy: pct >= 70,
+            summary: `${practiceResult.cardsMastered} of ${practiceResult.cardsReviewed} cards remembered${
+              practiceResult.durationSeconds
+                ? ` in ${Math.floor(practiceResult.durationSeconds / 60)}m ${practiceResult.durationSeconds % 60}s`
+                : ""
+            }.${practiceResult.cardsReviewed - practiceResult.cardsMastered > 0 ? ` ${practiceResult.cardsReviewed - practiceResult.cardsMastered} will come back sooner for review.` : ""}`,
+          }}
+        />
         <main className="mx-auto flex max-w-[960px] flex-col gap-6 px-6 pb-16 pt-8">
           <section
             className={cn(
@@ -215,7 +219,7 @@ export default function FlashcardsPage() {
       setPracticeResult(null);
 
       if (hasAuthToken()) {
-        const selectedTopics = topics.length ? topics : subject.topics.slice(0, 3);
+        const selectedTopics = topics.length ? topics : topicNames.slice(0, 3);
         const { subjectId: backendSubjectId, topicIds } = await resolveBackendSubjectContext(
           canonicalId,
           selectedTopics
@@ -251,7 +255,7 @@ export default function FlashcardsPage() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             subjectId: canonicalId,
-            topics: topics.length ? topics : subject.topics.slice(0, 3),
+            topics: topics.length ? topics : topicNames.slice(0, 3),
             count,
             learningStyle,
           }),
@@ -382,7 +386,8 @@ const handleEndSession = async () => {
           <fieldset>
             <legend className="sr-only">Select topics</legend>
             <div className="flex flex-wrap gap-2">
-              {subject.topics.map((t) => (
+              {subjectTopics.loading && <p className="text-sm text-muted-foreground">Loading topics…</p>}
+              {topicNames.map((t) => (
                 <label
                   key={t}
                   className={cn(

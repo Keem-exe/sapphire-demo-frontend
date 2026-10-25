@@ -1,12 +1,16 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { apiClient, SESSION_EXPIRED_EVENT } from "@/lib/api-client"
-import { seedDemoUserData } from "@/lib/services/seed-demo-data"
+import { clearBackendSubjectCache } from "@/lib/services/backend-subject-map"
+import { browserTimeZone, meService } from "@/lib/services/me-service"
 
-interface User {
+export type LearningStyleKey = "visual" | "auditory" | "kinesthetic" | "reading"
+export type Level = "csec" | "cape"
+
+export interface User {
   user_id: number
   id?: number
   email: string
@@ -17,26 +21,43 @@ interface User {
   age?: number
   gender?: string
   accountType?: string
-  level?: "csec" | "cape"
-  learning_style?: "visual" | "auditory" | "kinesthetic" | "reading"
+  isSuperAdmin?: boolean
+  level?: Level
+  learning_style?: LearningStyleKey
+  timezone?: string
+  /** null until the student finishes or skips the Sapphy guide (demo account: kept in this browser) */
+  onboardingCompletedAt?: string | null
+  isFirstLogin?: boolean
 }
 
 interface AuthContextType {
   user: User | null
   isLoading: boolean
+  /** True for the demo account, which has no backend session */
+  isDemo: boolean
+  /** True once the session matches the backend's copy of the account (fresh login, or the
+   * background check-in after a reload finished). Onboarding prompts wait for this. */
+  isSynced: boolean
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, firstName?: string, lastName?: string, age?: number, gender?: string, accountType?: string) => Promise<void>
   logout: () => void
-  updateUserLevel: (level: "csec" | "cape") => void
-  updateLearningStyle: (style: "visual" | "auditory" | "kinesthetic" | "reading") => void
+  updateUserLevel: (level: Level) => Promise<void>
+  updateLearningStyle: (style: LearningStyleKey) => Promise<void>
+  /** Save the onboarding quiz's answers; the backend works out the dominant style */
+  saveLearningStyleAnswers: (answers: { questionId: number; value: LearningStyleKey }[]) => Promise<LearningStyleKey>
+  completeOnboarding: () => Promise<void>
+  restartOnboarding: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const DEMO_EMAIL = "andrew.lee@demo.com"
+const DEMO_ONBOARDING_KEY = "sapphire_demo_onboarding_done"
+
 // Demo user fallback
 const DEMO_USER: User = {
   user_id: 999,
-  email: "andrew.lee@demo.com",
+  email: DEMO_EMAIL,
   first_name: "Andrew",
   last_name: "Lee",
   age: 17,
@@ -44,117 +65,180 @@ const DEMO_USER: User = {
   accountType: "student",
   level: undefined,
   learning_style: "visual",
+  onboardingCompletedAt: null,
 }
+
+const STYLE_FROM_BACKEND: Record<string, LearningStyleKey> = {
+  visual: "visual",
+  auditory: "auditory",
+  kinesthetic: "kinesthetic",
+  "reading/writing": "reading",
+  reading: "reading",
+}
+
+/** One user shape for the whole app, whatever casing the backend or an older session used. */
+function normalizeUser(raw: any): User {
+  const style = raw?.learning_style ?? raw?.learningStyle
+  return {
+    ...raw,
+    user_id: raw?.user_id ?? raw?.id,
+    id: raw?.id ?? raw?.user_id,
+    first_name: raw?.first_name ?? raw?.firstName,
+    last_name: raw?.last_name ?? raw?.lastName,
+    level: raw?.level === "csec" || raw?.level === "cape" ? raw.level : undefined,
+    learning_style: style ? STYLE_FROM_BACKEND[String(style).toLowerCase()] : undefined,
+    onboardingCompletedAt: raw?.onboardingCompletedAt ?? null,
+  }
+}
+
+const SESSION_KEYS = ["user", "authToken", "refreshToken", "selectedLevel", "learningStyle"]
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSynced, setIsSynced] = useState(false)
   const router = useRouter()
+  const isDemo = !!user && user.user_id === DEMO_USER.user_id
 
-  // Load user from localStorage on mount
+  /** Keep state, the stored session and the level/style keys other screens read in step. */
+  const persist = useCallback((next: User) => {
+    setUser(next)
+    try {
+      localStorage.setItem("user", JSON.stringify(next))
+      if (next.level) localStorage.setItem("selectedLevel", next.level)
+      if (next.learning_style) localStorage.setItem("learningStyle", next.learning_style)
+    } catch {}
+  }, [])
+
+  /** Merge the backend's copy of the account (level, style, onboarding) into the session. */
+  const applyServerUser = useCallback(
+    (serverUser: any) => {
+      setUser((prev) => {
+        const merged = normalizeUser({ ...(prev ?? {}), ...serverUser })
+        try {
+          localStorage.setItem("user", JSON.stringify(merged))
+          if (merged.level) localStorage.setItem("selectedLevel", merged.level)
+          if (merged.learning_style) localStorage.setItem("learningStyle", merged.learning_style)
+        } catch {}
+        return merged
+      })
+    },
+    [],
+  )
+
+  // Load the stored session, then refresh it from the backend in the background. The check-in
+  // also records today's visit (the log-on half of the streak) and the browser's time zone.
   useEffect(() => {
     const storedUser = localStorage.getItem("user")
     if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
       try {
-        const parsedUser = JSON.parse(storedUser)
-        const learningStyle = localStorage.getItem("learningStyle")
-        if (learningStyle) {
-          parsedUser.learning_style = learningStyle
+        const parsed = normalizeUser(JSON.parse(storedUser))
+        if (parsed.user_id === DEMO_USER.user_id) {
+          parsed.level = (localStorage.getItem("selectedLevel") as Level) || undefined
+          parsed.onboardingCompletedAt = localStorage.getItem(DEMO_ONBOARDING_KEY)
         }
-        setUser(parsedUser)
+        setUser(parsed)
+        if (localStorage.getItem("authToken")) {
+          meService
+            .checkIn()
+            .then((res) => applyServerUser(res.user))
+            .catch(() => {})
+            .finally(() => setIsSynced(true))
+        } else {
+          setIsSynced(true)
+        }
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') console.error("Failed to parse stored user:", error)
+        if (process.env.NODE_ENV === "development") console.error("Failed to parse stored user:", error)
         localStorage.removeItem("user")
       }
     }
     setIsLoading(false)
-  }, [])
+  }, [applyServerUser])
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true)
-      
-      // Check for demo user credentials - only specific demo email
-      if (email.toLowerCase() === "andrew.lee@demo.com") {
-        const userData = { ...DEMO_USER, email }
-        setUser(userData)
-        localStorage.setItem("user", JSON.stringify(userData))
-        
-        // Seed demo data for Andrew Lee if not already seeded
-        // TODO: Fix type mismatches in seed-demo-data.ts
-        // seedDemoUserData()
-        
+      clearBackendSubjectCache()
+
+      // Demo account: no backend, picks a level every time.
+      if (email.toLowerCase() === DEMO_EMAIL) {
+        const userData = { ...DEMO_USER, email, onboardingCompletedAt: localStorage.getItem(DEMO_ONBOARDING_KEY) }
+        ;["authToken", "refreshToken", "selectedLevel"].forEach((k) => localStorage.removeItem(k))
+        persist(userData)
+        setIsSynced(true)
         router.push("/select-level")
         return
       }
-      
-      // All other users must authenticate with the backend
+
       const response = await apiClient.post<{
-        success: boolean;
-        data: { user: User; token: string; refreshToken?: string; redirectToLearningStyle?: boolean }
+        success: boolean
+        data: { user: any; token: string; refreshToken?: string; redirectToLearningStyle?: boolean }
       }>("/api/auth/login", { email, password })
 
-      console.log("Backend response:", response)
-
-      // Backend returns {success: true, data: {user: {...}, token: "...", refreshToken: "..."}}
-      const userData = response.data?.user || (response as any).user || response as any as User
+      const raw = response.data?.user || (response as any).user
       const token = response.data?.token || (response as any).token
       const refreshToken = response.data?.refreshToken
-      const redirectToLearningStyle = response.data?.redirectToLearningStyle
 
-      if (!userData || !userData.email) {
-        console.error("Invalid user data:", userData, "Full response:", response)
+      if (!raw || !raw.email) {
         throw new Error("Invalid response from server. Please check the backend is configured correctly.")
       }
 
-      setUser(userData)
-      localStorage.setItem("user", JSON.stringify(userData))
-
       if (token) localStorage.setItem("authToken", token)
       if (refreshToken) localStorage.setItem("refreshToken", refreshToken)
+      // A different account may have used this browser: drop its level/style before restoring ours.
+      localStorage.removeItem("selectedLevel")
+      localStorage.removeItem("learningStyle")
 
-      // Redirect based on whether user needs to set learning style or level
-      if (redirectToLearningStyle || !userData.level) {
-        router.push("/select-level")
-      } else {
-        router.push("/dashboard")
-      }
+      const userData = normalizeUser(raw)
+      persist(userData)
+      setIsSynced(true)
+
+      // Record the browser's time zone and today's visit; don't hold up navigation for it.
+      const tz = browserTimeZone()
+      if (tz && tz !== userData.timezone) meService.updateMe({ timezone: tz }).catch(() => {})
+
+      // The level lives on the account, so returning students skip onboarding on every device.
+      // The dashboard opens the learning-style quiz itself if it was never finished.
+      router.push(userData.level ? "/dashboard" : "/select-level")
     } catch (error: any) {
       console.error("Login error:", error)
-      
-      // Check for backend connection errors or 404 (backend not running)
-      const errorMessage = error.message?.toLowerCase() || ''
-      const is404 = error.status === 404
-      const isNetworkError = errorMessage.includes('failed to fetch') || 
-          errorMessage.includes('network') || 
-          errorMessage.includes('fetch')
-      
-      if (is404 || isNetworkError ||
-          errorMessage.includes('connection') ||
-          error.name === 'TypeError') {
-        throw new Error("Cannot connect to server. The backend may be down or your internet connection is unavailable. Please try again later or use the demo account (andrew.lee@demo.com).")
+
+      const errorMessage = error.message?.toLowerCase() || ""
+      const isNetworkError =
+        error.name === "NetworkError" ||
+        error.name === "TypeError" ||
+        errorMessage.includes("failed to fetch") ||
+        errorMessage.includes("failed to connect")
+
+      if (isNetworkError) {
+        throw new Error(
+          "Cannot connect to server. The backend may be down or your internet connection is unavailable. Please try again later or use the demo account (andrew.lee@demo.com).",
+        )
       }
-      
-      // Check if user doesn't exist (404 or specific error messages)
-      if (error.status === 404 || errorMessage.includes('user not found') || errorMessage.includes('does not exist') || errorMessage.includes('no user found')) {
-        throw new Error("This account doesn't exist. Please check your email or register for a new account.")
+      if (error.status === 429) {
+        throw new Error(error.message || "Too many sign-in attempts. Please wait a few minutes and try again.")
       }
-      
-      // Check for wrong password (401 or specific error messages)
-      if (error.status === 401 || errorMessage.includes('incorrect password') || errorMessage.includes('invalid password') || errorMessage.includes('wrong password')) {
-        throw new Error("Incorrect password. Please try again.")
+      if (error.status === 401) {
+        throw new Error("That email and password don't match an account. Check them, or create a new account.")
       }
-      
-      // Generic authentication error
       throw new Error(error.message || "Invalid email or password. Please check your credentials.")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const register = async (email: string, password: string, firstName?: string, lastName?: string, age?: number, gender?: string, accountType?: string) => {
+  const register = async (
+    email: string,
+    password: string,
+    firstName?: string,
+    lastName?: string,
+    age?: number,
+    gender?: string,
+    accountType?: string,
+  ) => {
     try {
       setIsLoading(true)
+      clearBackendSubjectCache()
 
       const signupBody = {
         email,
@@ -167,28 +251,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         accountType: accountType?.toLowerCase(),
       }
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log("Signup request body:", signupBody)
-      }
-
       const response = await apiClient.post<{
-        success: boolean;
-        data: { user: User; token: string; refreshToken?: string }
+        success: boolean
+        data: { user: any; token: string; refreshToken?: string }
       }>("/api/auth/signup", signupBody)
 
-      // Support both {success, data: {user, token}} and flat {user, token}
-      const userData = response.data?.user ?? (response as any).user
+      const raw = response.data?.user ?? (response as any).user
       const token = response.data?.token ?? (response as any).token
       const refreshToken = response.data?.refreshToken ?? (response as any).refreshToken
 
-      if (!userData || !userData.email) {
+      if (!raw || !raw.email) {
         throw new Error("Invalid response from server — no user returned.")
       }
 
-      setUser(userData)
-      localStorage.setItem("user", JSON.stringify(userData))
       if (token) localStorage.setItem("authToken", token)
       if (refreshToken) localStorage.setItem("refreshToken", refreshToken)
+      localStorage.removeItem("selectedLevel")
+      localStorage.removeItem("learningStyle")
+      persist(normalizeUser(raw))
+      setIsSynced(true)
+
+      const tz = browserTimeZone()
+      if (token && tz) meService.updateMe({ timezone: tz }).catch(() => {})
 
       router.push("/select-level")
     } catch (error: any) {
@@ -202,7 +286,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const onExpired = () => {
       setUser(null)
-      ;["user", "authToken", "refreshToken", "selectedLevel", "learningStyle"].forEach((k) => localStorage.removeItem(k))
+      clearBackendSubjectCache()
+      SESSION_KEYS.forEach((k) => localStorage.removeItem(k))
       router.push("/")
     }
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
@@ -211,48 +296,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("user")
-    localStorage.removeItem("authToken")
-    localStorage.removeItem("refreshToken")
-    localStorage.removeItem("selectedLevel")
-    localStorage.removeItem("learningStyle")
+    clearBackendSubjectCache()
+    SESSION_KEYS.forEach((k) => localStorage.removeItem(k))
     router.push("/")
   }
 
-  const updateUserLevel = async (level: "csec" | "cape") => {
-    if (user) {
-      const updatedUser = { ...user, level }
-      setUser(updatedUser)
-      localStorage.setItem("user", JSON.stringify(updatedUser))
-      localStorage.setItem("selectedLevel", level)
-      
-      // Update backend
-      try {
-        await apiClient.put(`/users/${user.user_id}`, { level })
-      } catch (error) {
-        console.error("Failed to update level on backend:", error)
-      }
-    }
+  const updateUserLevel = async (level: Level) => {
+    if (!user) return
+    persist({ ...user, level })
+    if (isDemo) return
+    const serverUser = await meService.updateMe({ level })
+    clearBackendSubjectCache() // switching level enrolls the new level's subjects
+    applyServerUser(serverUser)
   }
 
-  const updateLearningStyle = async (style: "visual" | "auditory" | "kinesthetic" | "reading") => {
-    if (user) {
-      const updatedUser = { ...user, learning_style: style }
-      setUser(updatedUser)
-      localStorage.setItem("user", JSON.stringify(updatedUser))
-      localStorage.setItem("learningStyle", style)
-      
-      // Update backend
-      try {
-        await apiClient.put(`/users/${user.user_id}`, { learning_style: style })
-      } catch (error) {
-        console.error("Failed to update learning style on backend:", error)
-      }
+  const updateLearningStyle = async (style: LearningStyleKey) => {
+    if (!user) return
+    persist({ ...user, learning_style: style })
+    if (isDemo) return
+    applyServerUser(await meService.updateMe({ learningStyle: style }))
+  }
+
+  const saveLearningStyleAnswers = async (answers: { questionId: number; value: LearningStyleKey }[]) => {
+    // Same rule as the backend: the most common answer wins (first one on a tie).
+    const counts = new Map<LearningStyleKey, number>()
+    answers.forEach((a) => counts.set(a.value, (counts.get(a.value) ?? 0) + 1))
+    let dominant: LearningStyleKey = answers[0]?.value ?? "visual"
+    counts.forEach((n, style) => {
+      if (n > (counts.get(dominant) ?? 0)) dominant = style
+    })
+    if (user) persist({ ...user, learning_style: dominant })
+    if (!isDemo) {
+      await meService.saveLearningStyle(answers)
+      applyServerUser(await meService.getMe())
     }
+    return dominant
+  }
+
+  const completeOnboarding = async () => {
+    if (!user) return
+    const now = new Date().toISOString()
+    persist({ ...user, onboardingCompletedAt: now })
+    if (isDemo) {
+      localStorage.setItem(DEMO_ONBOARDING_KEY, now)
+      return
+    }
+    applyServerUser(await meService.updateMe({ onboardingCompleted: true }))
+  }
+
+  const restartOnboarding = async () => {
+    if (!user) return
+    persist({ ...user, onboardingCompletedAt: null })
+    if (isDemo) {
+      localStorage.removeItem(DEMO_ONBOARDING_KEY)
+      return
+    }
+    applyServerUser(await meService.updateMe({ onboardingCompleted: false }))
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateUserLevel, updateLearningStyle }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isDemo,
+        isSynced,
+        login,
+        register,
+        logout,
+        updateUserLevel,
+        updateLearningStyle,
+        saveLearningStyleAnswers,
+        completeOnboarding,
+        restartOnboarding,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

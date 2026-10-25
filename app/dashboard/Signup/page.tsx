@@ -55,8 +55,8 @@ export default function SignUpPage() {
 
     setIsLoading(true)
     try {
+      // register() takes the new student to level selection itself
       await register(email, password, firstName, lastName, parsedAge, gender, accountType)
-      router.push("/select-level")
     } catch (err: any) {
       console.error(err)
       setError(err.message || "Registration failed. Please try again.")

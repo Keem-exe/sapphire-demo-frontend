@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
+import { SUBJECTS, normalizeSubjectId } from "@/lib/data/subjects"
 import {
   Video,
   ArrowLeft,
@@ -90,32 +90,7 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-const SUBJECT_ALIASES: Record<string, SubjectId> = {
-  "1": "csec-math",
-  "2": "csec-eng",
-  "3": "csec-chem",
-  "4": "cape-phys",
-  "5": "cape-bio",
-  "6": "cape-puremath",
-  "csec-1": "csec-math",
-  "csec-2": "csec-chem",
-  "csec-3": "csec-eng",
-  "cape-1": "cape-puremath",
-  "cape-2": "cape-phys",
-  "cape-3": "cape-bio",
-  "csec-english": "csec-eng",
-  "csec-chemistry": "csec-chem",
-  "cape-puremaths": "cape-puremath",
-  "cape-physics": "cape-phys",
-  "cape-biology": "cape-bio",
-}
-
 const ALL_TOPICS = "All topics"
-
-function normalizeSubjectId(id: string): SubjectId {
-  const normalized = String(id || "").trim().toLowerCase()
-  return (SUBJECT_ALIASES[normalized] || normalized || "csec-math") as SubjectId
-}
 
 function withPlayerParams(baseUrl: string, options: { muted: boolean; videoId: string }) {
   const separator = baseUrl.includes("?") ? "&" : "?"
@@ -143,7 +118,7 @@ export default function ReelsPage() {
   const [isMuted, setIsMuted] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [availableTopics, setAvailableTopics] = useState<string[]>(subject.topics)
+  const [availableTopics, setAvailableTopics] = useState<string[]>(subject?.topics ?? [])
   const [likedReels, setLikedReels] = useState<Set<number>>(new Set())
   const [savedReels, setSavedReels] = useState<Set<number>>(new Set())
   const [backendSubjectId, setBackendSubjectId] = useState<number | null>(null)
@@ -165,7 +140,7 @@ export default function ReelsPage() {
 
   useEffect(() => {
     setSelectedTopic(ALL_TOPICS)
-    setAvailableTopics(subject.topics)
+    setAvailableTopics(subject?.topics ?? [])
     setCurrentReelIndex(0)
     setIsPlaying(true)
     setBackendSubjectId(null)
@@ -183,7 +158,7 @@ export default function ReelsPage() {
         if (cancelled) return
         setBackendSubjectId(bs.subjectId)
         setBackendTopics(topics)
-        setAvailableTopics(topics.length ? topics.map((t) => t.name) : subject.topics)
+        setAvailableTopics(topics.length ? topics.map((t) => t.name) : subject?.topics ?? [])
       })
       .catch((e: any) => {
         if (cancelled) return

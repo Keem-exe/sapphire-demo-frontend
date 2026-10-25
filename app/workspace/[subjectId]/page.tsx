@@ -8,7 +8,10 @@ import { NotebookSidebar } from "@/components/workspace/notebook-sidebar"
 import { NoteEditor } from "@/components/workspace/note-editor"
 import { AiChatPanel } from "@/components/workspace/ai-chat-panel"
 import { WorkspaceShell } from "@/components/workspace/workspace-shell"
-import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
+import { SUBJECTS, normalizeSubjectId } from "@/lib/data/subjects"
+import { useSubjectTopics } from "@/lib/services/subject-topics"
+import { useSubjectOverview } from "@/lib/hooks/use-me"
+import { hasAuthToken } from "@/lib/services/backend-subject-map"
 
 interface Note {
   id: string
@@ -19,33 +22,16 @@ interface Note {
   tags: string[]
 }
 
-const SUBJECT_EMOJI: Record<SubjectId, string> = {
-  "csec-math": "📐",
-  "csec-chem": "🧪",
-  "csec-eng": "📚",
-  "cape-puremath": "📈",
-  "cape-phys": "⚡",
-  "cape-bio": "🧬",
-}
-
-const normalizeSubjectId = (id: string): SubjectId => {
-  const map: Record<string, SubjectId> = {
-    "1": "csec-math",
-    "2": "csec-eng",
-    "3": "csec-chem",
-    "4": "cape-phys",
-    "5": "cape-bio",
-    "6": "cape-puremath",
-  };
-  return (map[id] || id) as SubjectId;
-};
-
 export default function WorkspacePage() {
   const params = useParams()
   const router = useRouter()
   const rawId = params.subjectId as string
   const subjectId = useMemo(() => normalizeSubjectId(rawId), [rawId])
   const subject = SUBJECTS[subjectId]
+  // Real topics (syllabus order) and real stats for signed-in students; the demo gets sample data.
+  const subjectTopics = useSubjectTopics(subjectId)
+  const overview = useSubjectOverview(subjectTopics.backendSubjectId)
+  const live = typeof window !== "undefined" && hasAuthToken()
 
   // Canonicalize URL
   useEffect(() => {
@@ -142,9 +128,12 @@ export default function WorkspacePage() {
     <WorkspaceShell
       subjectId={subjectId}
       subjectName={subject.name}
-      subjectEmoji={SUBJECT_EMOJI[subjectId] || "📚"}
-      levelLabel={subjectId.startsWith("cape") ? "CAPE" : "CSEC"}
-      topics={subject.topics}
+      subjectEmoji={subject.icon}
+      levelLabel={subject.level.toUpperCase()}
+      topics={subjectTopics.names}
+      stats={overview.data}
+      statsLoading={live && (subjectTopics.loading || overview.loading) && !overview.data}
+      backendSubjectId={subjectTopics.backendSubjectId}
       noteTitles={notes.map((n) => n.title)}
       onBack={handleBack}
       notebook={
@@ -165,6 +154,7 @@ export default function WorkspacePage() {
               onClose={handleEditorClose}
               isCreatingNote={isCreatingNote}
               subjectId={subjectId}
+              backendSubjectId={subjectTopics.backendSubjectId}
             />
           </div>
         </>

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Save, X, Tag, Bold, Italic, List, ListOrdered, Heading1, Heading2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/contexts/auth-context"
-import { learningIntelligenceService } from "@/lib/services/learning-intelligence-service"
+import { meService } from "@/lib/services/me-service"
 import { useToast } from "@/hooks/use-toast"
 import { MessageContent } from "@/components/workspace/ai-chat-panel"
 import { cn } from "@/lib/utils"
@@ -28,9 +28,11 @@ interface NoteEditorProps {
   onSave?: (note: Note) => void
   onClose?: () => void
   subjectId?: string
+  /** Backend subject id, so note-taking counts as study time (null for the demo account) */
+  backendSubjectId?: number | null
 }
 
-export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subjectId }: NoteEditorProps) {
+export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subjectId, backendSubjectId }: NoteEditorProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [title, setTitle] = useState("")
@@ -158,32 +160,14 @@ export function NoteEditor({ note, isCreatingNote = false, onSave, onClose, subj
     }
     onSave?.(savedNote)
     
-    // Record note-taking interaction
-    if (user && subjectId && sessionStartTime) {
+    // Notes live in this browser; tell the backend about the study time so it counts on the
+    // dashboard and profile. Note text is never sent.
+    if (user && backendSubjectId && sessionStartTime) {
       try {
-        const durationSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
-        
-        await learningIntelligenceService.recordInteraction({
-          userId: user.user_id,
-          subjectId: parseInt(subjectId.split('-')[1]) || 1,
-          topicId: null,
-          interactionType: 'notebook',
-          referenceId: null,
-          durationSeconds,
-          accuracy: 1.0, // Note-taking doesn't have accuracy
-          difficulty: 'medium',
-          metadata: {
-            noteTitle: savedNote.title,
-            wordCount: wordCount,
-            tags: tags,
-            action: note ? 'edited' : 'created'
-          }
-        });
-        
-        toast({
-          title: "Note Saved",
-          description: `Your note has been saved to your learning profile!`,
-        });
+        const durationSeconds = Math.min(4 * 60 * 60, Math.round((Date.now() - sessionStartTime) / 1000));
+        await meService.logNoteActivity({ subjectId: backendSubjectId, durationSeconds, wordCount });
+        setSessionStartTime(Date.now());
+        toast({ title: "Note saved", description: "Your study time has been added to your progress." });
       } catch (error) {
         console.error('Failed to record note-taking:', error);
       }

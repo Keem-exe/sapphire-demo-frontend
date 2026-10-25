@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import {
@@ -34,13 +34,15 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sapphy } from "@/components/sapphy"
 import { cn } from "@/lib/utils"
+import { meService, taskRoute, type SubjectOverview } from "@/lib/services/me-service"
 
 type ItemId = "notebook" | "sapphy" | "flashcards" | "quiz" | "reels" | "assign" | "resources" | "syllabus"
 type Place = "left" | "right" | "off"
 type ViewId = "overview" | "notebook" | "syllabus"
 
-// NOTE: everything below marked SAMPLE is placeholder content from the design.
-// There is no backend data for it yet, so replace it with real values when available.
+// Signed-in students see their real numbers (GET /api/me/subjects/<id>/overview, passed in as
+// `stats`). Everything marked SAMPLE is the design's placeholder content, shown only to the demo
+// account, which has no backend session.
 const DEFAULT_PLACE: Record<ItemId, Place> = {
   notebook: "left",
   resources: "left",
@@ -55,7 +57,7 @@ const DEFAULT_PLACE: Record<ItemId, Place> = {
 type ItemDef = {
   id: ItemId
   name: string
-  status: string // SAMPLE (except notebook, filled from real notes)
+  status: string // SAMPLE, replaced by real values for signed-in students
   icon: React.ComponentType<{ className?: string }>
   tint: string
   ink: string
@@ -72,6 +74,7 @@ const ITEM_DEFS: ItemDef[] = [
   { id: "syllabus", name: "Syllabus", status: "65% covered", icon: ListChecks, tint: "color-mix(in oklab, #1b4db3 14%, var(--card))", ink: "#14398a" },
 ]
 
+// SAMPLE (demo account only)
 const SAMPLE_PLAN = [
   { day: "Mon", task: "Write notes on the quadratic formula", meta: "Notebook · 15 min", state: "done", view: "notebook", cta: "" },
   { day: "Tue", task: "Algebra quiz sprint", meta: "Quiz · scored 80%", state: "done", view: "quiz", cta: "" },
@@ -124,7 +127,36 @@ interface WorkspaceShellProps {
   onBack: () => void
   notebook: React.ReactNode // real notebook sidebar + editor
   chat: (opts: { fullScreen: boolean }) => React.ReactNode // real AI coach
+  /** The student's real numbers for this subject; null for the demo account (or while loading) */
+  stats: SubjectOverview | null
+  statsLoading?: boolean
+  /** Backend subject id, for focus sessions (null for the demo account) */
+  backendSubjectId: number | null
 }
+
+const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+function minutesLabel(m: number) {
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  return m % 60 ? `${h}h ${m % 60}m` : `${h}h`
+}
+
+function lastStudiedLabel(iso: string | null | undefined) {
+  if (!iso) return "Not studied yet"
+  const then = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`).getTime()
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000))
+  if (mins < 2) return "Last studied just now"
+  if (mins < 60) return `Last studied ${mins} min ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `Last studied ${hours} ${hours === 1 ? "hour" : "hours"} ago`
+  const days = Math.round(hours / 24)
+  return `Last studied ${days} ${days === 1 ? "day" : "days"} ago`
+}
+
+const TASK_VIEW: Record<string, ItemId> = { quiz: "quiz", flashcards: "flashcards", reel: "reels", chat: "sapphy" }
+const TASK_LABEL: Record<string, string> = { quiz: "Quiz", flashcards: "Flashcards", reel: "Study reels", chat: "Sapphy" }
+const FOCUS_MINUTES = 25
 
 export function WorkspaceShell({
   subjectId,
@@ -136,8 +168,12 @@ export function WorkspaceShell({
   onBack,
   notebook,
   chat,
+  stats,
+  statsLoading = false,
+  backendSubjectId,
 }: WorkspaceShellProps) {
   const router = useRouter()
+  const live = stats !== null || statsLoading
   const [place, setPlace] = useState<Record<ItemId, Place>>(DEFAULT_PLACE)
   const [openL, setOpenL] = useState(false)
   const [openR, setOpenR] = useState(false)
@@ -152,8 +188,31 @@ export function WorkspaceShell({
   const [sapphy, setSapphy] = useState(true)
   const [focus, setFocus] = useState(false)
 
+  const realStatus = (id: ItemId): string | null => {
+    if (!live) return null
+    if (!stats) return "…"
+    const t = stats.tools
+    switch (id) {
+      case "flashcards":
+        return t.cardsDue ? `${t.cardsDue} ${t.cardsDue === 1 ? "topic" : "topics"} due for review` : t.flashcardSets ? `${t.flashcardSets} ${t.flashcardSets === 1 ? "set" : "sets"}` : "No cards yet"
+      case "quiz":
+        return t.lastQuiz?.percentage != null ? `Last score ${Math.round(t.lastQuiz.percentage)}%` : "No quizzes yet"
+      case "reels":
+        return t.savedReels ? `${t.savedReels} saved` : "Short study videos"
+      case "assign":
+        return "Practice with a mark scheme"
+      case "resources":
+        return t.papersAttempted ? `${t.papersAttempted} ${t.papersAttempted === 1 ? "paper" : "papers"} done` : "Past papers"
+      case "syllabus":
+        return `${stats.mastery.syllabusCovered}% covered`
+      default:
+        return null
+    }
+  }
   const items = ITEM_DEFS.map((it) =>
-    it.id === "notebook" ? { ...it, status: `${noteTitles.length} ${noteTitles.length === 1 ? "note" : "notes"}` } : it,
+    it.id === "notebook"
+      ? { ...it, status: `${noteTitles.length} ${noteTitles.length === 1 ? "note" : "notes"}` }
+      : { ...it, status: realStatus(it.id) ?? it.status },
   )
   const leftItems = items.filter((i) => i.id !== "sapphy" && place[i.id] === "left")
   const rightTools = items.filter((i) => i.id !== "sapphy" && place[i.id] === "right")
@@ -161,8 +220,80 @@ export function WorkspaceShell({
   const current = items.find((i) => i.id === (view as ItemId))
   const viewName = current ? current.name : "Overview"
 
-  const syllabusRows = topics.map((name, i) => ({ name, pct: SAMPLE_PCTS[i % SAMPLE_PCTS.length] }))
-  const weakest = [...syllabusRows].sort((a, b) => a.pct - b.pct)[0]
+  const syllabusRows: { name: string; pct: number; module: string | null; started: boolean }[] = live
+    ? (stats?.topics ?? []).map((t) => ({
+        name: t.name,
+        pct: t.mastery,
+        module: t.moduleNumber != null ? `Module ${t.moduleNumber}${t.moduleTitle ? `: ${t.moduleTitle}` : ""}` : null,
+        started: t.attempts > 0,
+      }))
+    : topics.map((name, i) => ({ name, pct: SAMPLE_PCTS[i % SAMPLE_PCTS.length], module: null, started: true }))
+  const weakest = live
+    ? stats?.mastery.weakestTopic
+      ? { name: stats.mastery.weakestTopic.name, pct: stats.mastery.weakestTopic.mastery }
+      : null
+    : [...syllabusRows].sort((a, b) => a.pct - b.pct)[0]
+  // Topic mastery card: topics already practised first (weakest first), then the next ones to start.
+  const masteryRows = live
+    ? [...syllabusRows.filter((r) => r.started).sort((a, b) => a.pct - b.pct), ...syllabusRows.filter((r) => !r.started)]
+    : syllabusRows
+
+  // Study time this week (real minutes per day, Monday to Sunday)
+  const weekMinutes = live ? (stats?.studyTime.week ?? []).map((d) => d.minutes) : SAMPLE_WEEK_MINUTES
+  const weekDays = live ? (stats?.studyTime.week ?? []).map((d) => d.weekday) : SAMPLE_DAYS
+  const todayIndex = live ? Math.max(0, (stats?.studyTime.week ?? []).findIndex((d) => d.isToday)) : 2
+  const chartMax = Math.max(60, ...weekMinutes)
+  const thisWeek = live ? stats?.studyTime.thisWeekMinutes ?? 0 : 200
+  const lastWeek = live ? stats?.studyTime.lastWeekMinutes ?? 0 : 160
+  const weekDelta = thisWeek - lastWeek
+
+  // This week's learning plan: Sapphy's daily tasks for this subject so far this week
+  const todayIso = stats?.today
+  const plan = live
+    ? (stats?.weekPlan.tasks ?? []).map((t) => {
+        const weekday = DAY_SHORT[(new Date(`${t.date}T00:00:00`).getDay() + 6) % 7]
+        const state = t.done ? "done" : t.date === todayIso ? "today" : t.date < (todayIso ?? "") ? "missed" : "next"
+        return {
+          key: String(t.id),
+          day: weekday,
+          task: t.title,
+          meta: `${TASK_LABEL[t.type] ?? t.type}${t.topicName ? ` · ${t.topicName}` : ""}${state === "missed" ? " · not done" : ""}`,
+          state,
+          view: TASK_VIEW[t.type] ?? "sapphy",
+          cta: state === "today" ? "Start" : "",
+          route: taskRoute(t.type),
+        }
+      })
+    : SAMPLE_PLAN.map((p) => ({ ...p, key: p.day, route: "" }))
+  const planDone = live ? stats?.weekPlan.done ?? 0 : 2
+  const planTotal = live ? stats?.weekPlan.total ?? 0 : 7
+
+  // Focus mode: a real 25-minute session, saved to the student's study time when they finish.
+  const [focusLeft, setFocusLeft] = useState(FOCUS_MINUTES * 60)
+  const focusSession = useRef<{ id: number | null; started: number } | null>(null)
+  useEffect(() => {
+    if (!focus) return
+    focusSession.current = { id: null, started: Date.now() }
+    setFocusLeft(FOCUS_MINUTES * 60)
+    if (backendSubjectId) {
+      meService
+        .startFocus(backendSubjectId, FOCUS_MINUTES)
+        .then((s) => {
+          if (focusSession.current) focusSession.current.id = s.id
+        })
+        .catch(() => {})
+    }
+    const tick = window.setInterval(() => {
+      const started = focusSession.current?.started ?? Date.now()
+      setFocusLeft(Math.max(0, FOCUS_MINUTES * 60 - Math.round((Date.now() - started) / 1000)))
+    }, 1000)
+    return () => {
+      window.clearInterval(tick)
+      const s = focusSession.current
+      focusSession.current = null
+      if (s?.id) meService.finishFocus(s.id, Math.round((Date.now() - s.started) / 1000)).catch(() => {})
+    }
+  }, [focus, backendSubjectId])
 
   const openItem = (id: ItemId) => {
     if (id === "sapphy") {
@@ -317,41 +448,52 @@ export function WorkspaceShell({
             <span aria-hidden="true">{subjectEmoji}</span> {subjectName}
           </h1>
           <p className="text-muted-foreground">
-            {levelLabel} · {topics.length} topics · Last studied 2 hours ago
+            {levelLabel} · {live ? stats?.mastery.totalTopics ?? topics.length : topics.length} topics ·{" "}
+            {live ? lastStudiedLabel(stats?.lastStudiedAt) : "Last studied 2 hours ago"}
           </p>
         </div>
-        <Button variant="outline" className="min-h-11 rounded-xl shadow-none" onClick={() => openItem("sapphy")}>
+        <Button variant="outline" className="min-h-11 rounded-xl shadow-none" onClick={() => router.push(`/workspace/${subjectId}/resources`)}>
           <Timer className="size-4" aria-hidden="true" />
-          Set exam date
+          {stats?.examDate
+            ? `Exam ${new Date(`${stats.examDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`
+            : "Set exam date"}
         </Button>
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3.5">
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <p className="text-xs text-muted-foreground">Studied this week</p>
-          <p className="text-[26px] font-bold leading-8 tabular-nums">3h 20m</p>
-          <p className="text-xs text-status-success">+40m on last week</p>
+          <p className="text-[26px] font-bold leading-8 tabular-nums">{minutesLabel(thisWeek)}</p>
+          <p className={cn("text-xs", weekDelta > 0 ? "text-status-success" : "text-muted-foreground")}>
+            {weekDelta > 0 ? `+${minutesLabel(weekDelta)} on last week` : weekDelta < 0 ? `${minutesLabel(-weekDelta)} less than last week` : lastWeek ? "Same as last week" : "Every minute counts"}
+          </p>
         </div>
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <p className="text-xs text-muted-foreground">Study streak</p>
           <p className="flex items-center gap-1.5 text-[26px] font-bold leading-8 tabular-nums text-streak">
-            <Flame className="size-5" aria-hidden="true" />6 days
+            <Flame className="size-5" aria-hidden="true" />
+            {live ? stats?.streak.current ?? 0 : 6} {(live ? stats?.streak.current ?? 0 : 6) === 1 ? "day" : "days"}
           </p>
-          <p className="text-xs text-muted-foreground">Best: 11 days</p>
+          <p className="text-xs text-muted-foreground">
+            {live && stats?.streak.atRisk ? "Do one of today's tasks to keep it" : `Best: ${live ? stats?.streak.best ?? 0 : 11} days`}
+          </p>
         </div>
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <p className="text-xs text-muted-foreground">Syllabus covered</p>
-          <p className="text-[26px] font-bold leading-8 tabular-nums">65%</p>
+          <p className="text-[26px] font-bold leading-8 tabular-nums">{live ? stats?.mastery.syllabusCovered ?? 0 : 65}%</p>
           <div className="mt-1">
-            <Bar pct={65} thin />
+            <Bar pct={live ? stats?.mastery.syllabusCovered ?? 0 : 65} thin />
           </div>
         </div>
         <div className="rounded-2xl border bg-card p-4 shadow-sm">
           <p className="text-xs text-muted-foreground">Topics mastered</p>
           <p className="text-[26px] font-bold leading-8 tabular-nums">
-            9 <span className="text-base font-medium text-muted-foreground">of {topics.length > 9 ? topics.length : 24}</span>
+            {live ? stats?.mastery.topicsMastered ?? 0 : 9}{" "}
+            <span className="text-base font-medium text-muted-foreground">of {live ? stats?.mastery.totalTopics ?? 0 : 24}</span>
           </p>
-          <p className="text-xs text-muted-foreground">2 close to mastery</p>
+          <p className="text-xs text-muted-foreground">
+            {live ? stats?.mastery.closeToMastery ?? 0 : 2} close to mastery
+          </p>
         </div>
       </div>
 
@@ -360,19 +502,26 @@ export function WorkspaceShell({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold">This week's learning plan</h2>
-              <p className="text-xs text-muted-foreground">Built by Sapphy from your weak topics · 2 of 7 done</p>
+              <p className="text-xs text-muted-foreground">
+                Sapphy's daily tasks for {subjectName} · {planDone} of {planTotal} done
+              </p>
             </div>
             <Button variant="ghost" size="sm" className="min-h-11 shadow-none" onClick={() => openItem("sapphy")}>
-              Adjust with Sapphy
+              Ask Sapphy
             </Button>
           </div>
-          <Bar pct={28} thin />
+          <Bar pct={planTotal ? Math.round((planDone / planTotal) * 100) : 0} thin />
+          {plan.length === 0 && (
+            <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              {statsLoading ? "Loading your plan…" : `No ${subjectName} tasks yet this week. Sapphy adds them to your daily tasks on the dashboard.`}
+            </p>
+          )}
           <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
-            {SAMPLE_PLAN.map((p) => {
+            {plan.map((p) => {
               const Icon = p.state === "done" ? CheckCircle2 : p.state === "today" ? CircleDot : Circle
               return (
                 <li
-                  key={p.day}
+                  key={p.key}
                   className={cn(
                     "flex items-center gap-3 rounded-xl border px-3 py-2.5",
                     p.state === "today" ? "border-primary/35 bg-primary/[0.07]" : "border-border",
@@ -389,10 +538,10 @@ export function WorkspaceShell({
                   </span>
                   {p.state === "today" && (
                     <Button size="sm" className="min-h-11 shadow-none" onClick={() => openItem(p.view as ItemId)}>
-                      {p.cta}
+                      {p.cta || "Start"}
                     </Button>
                   )}
-                  {p.state === "next" && (
+                  {p.state === "next" && p.cta && (
                     <Button size="sm" variant="ghost" className="min-h-11 shadow-none" onClick={() => openItem(p.view as ItemId)}>
                       {p.cta}
                     </Button>
@@ -411,23 +560,24 @@ export function WorkspaceShell({
             </div>
             <div
               role="img"
-              aria-label="Minutes studied each day this week: Monday 45, Tuesday 30, Wednesday 20 so far, Thursday to Sunday not yet."
+              aria-label={`Minutes studied each day this week: ${weekDays.map((d, i) => `${d} ${weekMinutes[i] ?? 0}`).join(", ")}.`}
               className="flex h-[120px] items-end gap-2 border-b"
             >
-              {SAMPLE_WEEK_MINUTES.map((m, i) => (
+              {weekMinutes.map((m, i) => (
                 <span
                   key={i}
                   className="min-h-[3px] flex-1 rounded-t"
+                  title={`${m} min`}
                   style={{
-                    height: `${Math.max(2, Math.round((m / 60) * 100))}%`,
-                    background: i === 2 ? "var(--primary)" : m ? "color-mix(in oklab, var(--primary) 45%, var(--card))" : "var(--muted)",
+                    height: `${Math.max(2, Math.round((m / chartMax) * 100))}%`,
+                    background: i === todayIndex ? "var(--primary)" : m ? "color-mix(in oklab, var(--primary) 45%, var(--card))" : "var(--muted)",
                   }}
                 />
               ))}
             </div>
             <div className="flex gap-2">
-              {SAMPLE_DAYS.map((d, i) => (
-                <span key={d} className={cn("flex-1 text-center text-xs text-muted-foreground", i === 2 && "font-semibold")}>
+              {weekDays.map((d, i) => (
+                <span key={`${d}-${i}`} className={cn("flex-1 text-center text-xs text-muted-foreground", i === todayIndex && "font-semibold")}>
                   {d}
                 </span>
               ))}
@@ -440,7 +590,8 @@ export function WorkspaceShell({
                 All topics
               </Button>
             </div>
-            {syllabusRows.slice(0, 5).map((s) => (
+            {masteryRows.length === 0 && <p className="text-sm text-muted-foreground">{statsLoading ? "Loading…" : "No topics yet."}</p>}
+            {masteryRows.slice(0, 5).map((s) => (
               <div key={s.name}>
                 <div className="flex justify-between text-xs">
                   <span>{s.name}</span>
@@ -449,12 +600,14 @@ export function WorkspaceShell({
                 <Bar pct={s.pct} thin />
               </div>
             ))}
-            {weakest && (
+            {weakest ? (
               <div className="flex gap-2.5 rounded-xl border border-status-warning/40 bg-status-warning-subtle p-3 text-[13px]">
                 <Target className="size-4 shrink-0 text-status-warning" aria-hidden="true" />
                 {weakest.name} ({weakest.pct}%) is your weakest topic.
               </div>
-            )}
+            ) : live && stats ? (
+              <p className="text-[13px] text-muted-foreground">Take a quiz and Sapphy will show which topics need the most work.</p>
+            ) : null}
           </section>
         </div>
       </div>
@@ -487,8 +640,11 @@ export function WorkspaceShell({
       <p className="text-muted-foreground">
         Every {levelLabel} {subjectName} topic, with how confident you are in each.
       </p>
-      {syllabusRows.map((s) => (
+      {syllabusRows.map((s, i) => (
         <div key={s.name} className="rounded-2xl border bg-card p-4 shadow-sm">
+          {s.module && s.module !== syllabusRows[i - 1]?.module && (
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{s.module}</p>
+          )}
           <div className="flex items-center justify-between">
             <span className="font-medium">{s.name}</span>
             <span className="text-xs tabular-nums text-muted-foreground">{s.pct}%</span>
@@ -581,7 +737,9 @@ export function WorkspaceShell({
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
               <Timer className="size-3.5" aria-hidden="true" />
-              18:42 left in this 25-minute session
+              {focusLeft > 0
+                ? `${Math.floor(focusLeft / 60)}:${String(focusLeft % 60).padStart(2, "0")} left in this ${FOCUS_MINUTES}-minute session`
+                : "Session complete. Nice focus!"}
             </span>
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="size-3.5" aria-hidden="true" />

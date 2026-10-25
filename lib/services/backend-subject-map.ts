@@ -7,12 +7,21 @@ export type BackendSubject = {
   subjectId: number;
   subjectName?: string;
   subjectCode?: string;
+  progressPercentage?: number;
+  lastStudiedAt?: string | null;
+  examDate?: string | null;
+  topicCount?: number;
+  level?: "csec" | "cape" | null;
+  unitCount?: number;
 };
 
 export type BackendTopic = {
   id: number;
   name: string;
   subjectId?: number;
+  moduleNumber?: number | null;
+  moduleTitle?: string | null;
+  order?: number;
 };
 
 const api = new ApiClient();
@@ -22,34 +31,48 @@ export function hasAuthToken(): boolean {
   return !!localStorage.getItem("authToken");
 }
 
-export async function resolveBackendSubject(subjectKey: SubjectId): Promise<BackendSubject> {
+// One lookup per subject per page load: several components on a page resolve the same subject.
+const resolved = new Map<SubjectId, Promise<BackendSubject>>();
+
+/** Forget cached subject lookups (call on sign-in/sign-out so accounts never share them). */
+export function clearBackendSubjectCache() {
+  resolved.clear();
+}
+
+async function findEnrolled(subjectName: string): Promise<BackendSubject | undefined> {
+  const response: any = await api.get("/api/subjects");
+  const subjects: BackendSubject[] = response?.data?.subjects || response?.subjects || [];
+  return subjects.find((s) => s.subjectName?.toLowerCase() === subjectName.toLowerCase());
+}
+
+async function resolve(subjectKey: SubjectId): Promise<BackendSubject> {
   const subjectName = SUBJECTS[subjectKey]?.name;
+  if (!subjectName) throw new Error("Unknown subject.");
 
-  const findMatch = async () => {
-    const response: any = await api.get("/api/subjects");
-    const subjects: BackendSubject[] = response?.data?.subjects || response?.subjects || [];
-    return subjects.find(
-      (s) =>
-        s.subjectCode === subjectKey ||
-        (subjectName && s.subjectName?.toLowerCase() === subjectName.toLowerCase())
-    );
-  };
-
-  const existing = await findMatch();
+  const existing = await findEnrolled(subjectName);
   if (existing) return existing;
 
-  // The backend enrolls by exact name (code = name.upper().replace(' ', '_'));
-  // SUBJECTS names must match the curriculum seed so students land on subjects that have topics.
-  if (!subjectName) throw new Error("Unknown subject.");
+  // Not enrolled yet: enroll in the catalog subject with this exact name.
   try {
-    await api.post("/api/subject", { name: subjectName, icon: subjectKey, color: "#3b82f6" });
+    await api.post("/api/subject", { name: subjectName, icon: SUBJECTS[subjectKey].icon, color: "#3b82f6" });
   } catch (e: any) {
+    if (e?.status === 404) throw new Error(`${subjectName} isn't available yet.`);
     if (e?.status !== 409) throw e; // 409 = already enrolled; fall through and re-fetch
   }
 
-  const enrolled = await findMatch();
+  const enrolled = await findEnrolled(subjectName);
   if (!enrolled) throw new Error("Couldn't enrol you in this subject. Please try again.");
   return enrolled;
+}
+
+export function resolveBackendSubject(subjectKey: SubjectId): Promise<BackendSubject> {
+  let pending = resolved.get(subjectKey);
+  if (!pending) {
+    pending = resolve(subjectKey);
+    pending.catch(() => resolved.delete(subjectKey)); // retry next time after a failure
+    resolved.set(subjectKey, pending);
+  }
+  return pending;
 }
 
 export async function fetchBackendTopics(subjectId: number): Promise<BackendTopic[]> {
@@ -58,15 +81,10 @@ export async function fetchBackendTopics(subjectId: number): Promise<BackendTopi
 }
 
 export async function resolveBackendTopics(subjectId: number, topicNames: string[]): Promise<number[]> {
-  const response: any = await api.get(`/api/subject/${subjectId}/topics`);
-  const topics: BackendTopic[] = response?.data?.topics || response?.topics || [];
-
+  const topics = await fetchBackendTopics(subjectId);
   if (!topics.length) return [];
 
-  const selected = topics
-    .filter((t) => topicNames.includes(t.name))
-    .map((t) => t.id);
-
+  const selected = topics.filter((t) => topicNames.includes(t.name)).map((t) => t.id);
   if (selected.length) return selected;
 
   const fallbackCount = Math.max(1, topicNames.length || 1);

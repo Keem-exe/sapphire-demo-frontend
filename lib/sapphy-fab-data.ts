@@ -1,6 +1,9 @@
-// SAMPLE: placeholder feedback copy from the design. Nothing here comes from the backend yet.
-// "to" is a workspace route segment (quiz, reels, flashcards, resources), or empty when the step has no page yet.
-// {name} is replaced with the student's first name.
+// Sapphy's floating panel copy.
+// - FAB_CONTENT: the design's SAMPLE copy (made-up scores and topics). Only the demo account sees it.
+// - LIVE_FAB_CONTENT: what signed-in students see. It never quotes a number or topic it doesn't know;
+//   screens pass the student's real results in through <SapphyFab content={...}>.
+// "to" is a workspace route segment (quiz, reels, flashcards, resources), or empty when the step has no page yet;
+// "href" (optional) is a full path and wins over "to". {name} is replaced with the student's first name.
 
 export type FabActivity =
   | "dashboard"
@@ -24,7 +27,7 @@ export interface FabContent {
   summary: string
   good: string[]
   work: string[]
-  steps: { t: string; why: string; to: "quiz" | "reels" | "flashcards" | "resources" | "" }[]
+  steps: { t: string; why: string; to: "quiz" | "reels" | "flashcards" | "resources" | ""; href?: string }[]
   askIntro: string
   asks: { q: string; a: string }[]
 }
@@ -295,3 +298,134 @@ const CONTENT: Record<Exclude<FabActivity, "dashboard">, FabContent> = {
 }
 
 export const FAB_CONTENT: Record<FabActivity, FabContent> = { ...CONTENT, dashboard: CONTENT["quiz-setup"] }
+
+const LIVE: Record<Exclude<FabActivity, "dashboard">, FabContent> = {
+  "quiz-setup": {
+    kicker: "Before you start",
+    ended: false,
+    feedbackLabel: "My pick",
+    teaser: "Not sure what to pick? Ask me.",
+    summary: "Pick one or two topics you want to get better at. Five medium questions takes about five minutes.",
+    good: [],
+    work: [],
+    steps: [
+      { t: "Start with five medium questions", why: "Enough to show where you stand", to: "quiz" },
+      { t: "Warm up with a short reel first", why: "Handy if the topic is new", to: "reels" },
+    ],
+    askIntro: "Ask me anything before you start.",
+    asks: [
+      { q: "How hard should I go?", a: "Start on medium. If you score above 80%, try hard next time; below 50%, drop to easy." },
+      { q: "How many questions?", a: "Five is a good sprint, and finishing any quiz counts towards your daily tasks." },
+    ],
+  },
+  "quiz-active": {
+    kicker: "Quiz in progress",
+    ended: false,
+    feedbackLabel: "Tips",
+    teaser: "Stuck? Tap me for a nudge.",
+    summary: "I won't give answers away during a quiz, but I can nudge you in the right direction.",
+    good: [],
+    work: [],
+    steps: [{ t: "Answer what you can, then submit", why: "Your full feedback appears when you submit", to: "" }],
+    askIntro: "Tell me which question is tricky and what you've tried.",
+    asks: [
+      { q: "How do I check my working?", a: "Put your answer back into the question. If it fits every condition, you're probably right." },
+      { q: "What if I don't know an answer?", a: "Make your best attempt. A wrong answer still shows me what to help you with next." },
+    ],
+  },
+  "quiz-results": {
+    kicker: "Your quiz feedback",
+    ended: true,
+    feedbackLabel: "Feedback",
+    summary: "Here's how that quiz went.",
+    good: [],
+    work: [],
+    steps: [
+      { t: "Drill the ones you missed with flashcards", why: "Locks in the fixes", to: "flashcards" },
+      { t: "Try another quiz", why: "Spacing practice out helps it stick", to: "quiz" },
+    ],
+    askIntro: "Ask me about any question from this quiz.",
+    asks: [
+      { q: "How do I improve my score?", a: "Review each wrong answer, redo it without looking, then try a few similar questions tomorrow." },
+    ],
+  },
+  flashcards: {
+    kicker: "Flashcard session complete",
+    ended: true,
+    feedbackLabel: "Feedback",
+    summary: "Nice session. Cards you marked hard will come back sooner.",
+    good: [],
+    work: [],
+    steps: [
+      { t: "Review the hard cards again", why: "A second pass now makes them stick", to: "flashcards" },
+      { t: "Then try a short quiz", why: "Check it has stuck", to: "quiz" },
+    ],
+    askIntro: "Want me to explain any card you found hard?",
+    asks: [{ q: "How often should I review?", a: "Little and often: a few minutes a day beats one long session a week." }],
+  },
+  reels: {
+    kicker: "Study reels",
+    ended: false,
+    feedbackLabel: "Next up",
+    teaser: "Finished a reel? Lock it in.",
+    summary: "Watching a reel counts towards your daily tasks. A quick check afterwards helps it stick.",
+    good: [],
+    work: [],
+    steps: [
+      { t: "Quick check with a short quiz", why: "Under five minutes", to: "quiz" },
+      { t: "Make flashcards on the same topic", why: "Review it again tomorrow", to: "flashcards" },
+    ],
+    askIntro: "Ask me about anything in a reel.",
+    asks: [{ q: "Summarise what I just watched", a: "Open Sapphy in your subject workspace and tell me the reel's topic. I'll give you the key points." }],
+  },
+  assignment: {
+    kicker: "Mark scheme revealed",
+    ended: true,
+    feedbackLabel: "Feedback",
+    summary: "Compare your answers with the mark scheme line by line, and note where marks slipped.",
+    good: [],
+    work: [],
+    steps: [
+      { t: "Practise the topics you lost marks on", why: "A short quiz targets them", to: "quiz" },
+      { t: "Try a past paper question", why: "From Resources", to: "resources" },
+    ],
+    askIntro: "Tell me which marks you dropped and I'll explain.",
+    asks: [
+      { q: "How do I get method marks?", a: "Write each step on its own line, even simple ones. Method marks are awarded even when the final answer is wrong." },
+    ],
+  },
+  resources: {
+    kicker: "Past paper practice",
+    ended: false,
+    feedbackLabel: "My plan",
+    teaser: "Record your past paper scores and I'll track them.",
+    summary: "After you do a past paper, record your score here. I'll track your average and which papers you've done.",
+    good: [],
+    work: [],
+    steps: [
+      { t: "Set your exam date", why: "Your dashboard counts down to it", to: "" },
+      { t: "Practise timed questions", why: "Exam conditions", to: "quiz" },
+    ],
+    askIntro: "Ask me about any paper or mark scheme.",
+    asks: [{ q: "How should I use past papers?", a: "Do one under timed conditions, mark it with the mark scheme, then record your score so we can see your progress." }],
+  },
+}
+
+export const LIVE_FAB_CONTENT: Record<FabActivity, FabContent> = {
+  ...LIVE,
+  dashboard: {
+    kicker: "Today with Sapphy",
+    ended: false,
+    feedbackLabel: "Today",
+    teaser: "Your tasks for today are ready.",
+    summary: "Finish at least one of today's tasks to keep your streak going.",
+    good: [],
+    work: [],
+    steps: [],
+    askIntro: "Ask me anything about your studies.",
+    asks: [
+      { q: "How does my streak work?", a: "Log on and finish at least one of my three daily tasks. Do that every day and your streak grows. Finish all three for a perfect day." },
+      { q: "Where do my tasks come from?", a: "I pick them from your own results: the topics you find hardest, cards due for review, and what's next in your syllabus." },
+    ],
+  },
+}

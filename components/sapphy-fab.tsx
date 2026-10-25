@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Check, ChevronRight, CircleAlert, Send, ThumbsDown, ThumbsUp, X } from "lucide-react"
 import { Sapphy } from "@/components/sapphy"
 import { useAuth } from "@/contexts/auth-context"
-import { FAB_CONTENT, type FabActivity } from "@/lib/sapphy-fab-data"
+import { FAB_CONTENT, LIVE_FAB_CONTENT, type FabActivity, type FabContent } from "@/lib/sapphy-fab-data"
+import { hasAuthToken } from "@/lib/services/backend-subject-map"
 import { cn } from "@/lib/utils"
 
 interface SapphyFabProps {
@@ -14,6 +15,8 @@ interface SapphyFabProps {
   subjectId?: string
   /** Open the panel on first show. Defaults to true only for "ended" activities (results and summaries) */
   startOpen?: boolean
+  /** Real content for this moment (score, summary, next steps), merged over the default copy */
+  content?: Partial<FabContent>
 }
 
 const VERDICT_TONE = {
@@ -24,12 +27,15 @@ const VERDICT_TONE = {
 
 /**
  * Sapphy's floating button and panel: feedback for what the student just did, next steps,
- * and an "Ask Sapphy" tab. SAMPLE: the copy comes from lib/sapphy-fab-data.ts, not the backend.
+ * and an "Ask Sapphy" tab. Signed-in students see their real results (passed in as `content`)
+ * over copy that quotes no numbers; the demo account sees the design's sample copy.
  * Pass a new `activity` (or a `key`) to reset it when the screen changes state.
  */
-export function SapphyFab({ activity, subjectId = "csec-math", startOpen }: SapphyFabProps) {
+export function SapphyFab({ activity, subjectId = "csec-math", startOpen, content }: SapphyFabProps) {
   const { user } = useAuth()
-  const d = FAB_CONTENT[activity]
+  const [live, setLive] = useState(false)
+  useEffect(() => setLive(hasAuthToken()), [])
+  const d: FabContent = { ...(live ? LIVE_FAB_CONTENT : FAB_CONTENT)[activity], ...(content ?? {}) }
   const [open, setOpen] = useState(startOpen ?? d.ended)
   const [view, setView] = useState<"feedback" | "ask">("feedback")
   const [thread, setThread] = useState<{ q: string; a: string }[]>([])
@@ -136,8 +142,9 @@ export function SapphyFab({ activity, subjectId = "csec-math", startOpen }: Sapp
               )}
               <div className="flex flex-col gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next steps</p>
+                {d.steps.length === 0 && <p className="text-muted-foreground">Nothing queued right now.</p>}
                 {d.steps.map((s, i) => {
-                  const href = routeFor(s.to)
+                  const href = s.href ?? routeFor(s.to)
                   const inner = (
                     <>
                       <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold tabular-nums text-primary-strong">
@@ -235,6 +242,7 @@ export function SapphyFab({ activity, subjectId = "csec-math", startOpen }: Sapp
       )}
 
       <button
+        data-tour="sapphy-fab"
         aria-label={open ? "Close Sapphy" : d.ended ? "Open your feedback from Sapphy" : "Ask Sapphy for help"}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}

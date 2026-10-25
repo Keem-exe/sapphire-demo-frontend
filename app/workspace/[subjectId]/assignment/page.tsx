@@ -3,7 +3,8 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { SUBJECTS, type SubjectId } from "@/lib/data/subjects"
+import { SUBJECTS, normalizeSubjectId } from "@/lib/data/subjects"
+import { useSubjectTopics } from "@/lib/services/subject-topics"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,8 +43,10 @@ const SAMPLE_ASSIGNMENT: Assignment = {
 
 export default function AssignmentPage() {
   const params = useParams()
-  const subjectId = params.subjectId as SubjectId
+  const subjectId = normalizeSubjectId(String(params.subjectId || ""))
   const subject = SUBJECTS[subjectId]
+  const subjectTopics = useSubjectTopics(subjectId)
+  const topicNames = subjectTopics.names
 
   const [topics, setTopics] = useState<string[]>([])
   const [count, setCount] = useState(5)
@@ -67,7 +70,7 @@ export default function AssignmentPage() {
     }
     setLoading(true)
     try {
-      const picked = topics.length ? topics : subject.topics.slice(0, 1)
+      const picked = topics.length ? topics : topicNames.slice(0, 1)
       const { subjectId: backendSubjectId, topicIds } = await resolveBackendSubjectContext(subjectId, picked)
       if (!topicIds.length) {
         throw new Error("No topics are available for this subject yet. Please try again later or contact support.")
@@ -120,7 +123,8 @@ export default function AssignmentPage() {
           <fieldset>
             <legend className="sr-only">Topics</legend>
             <div className="flex flex-wrap gap-2">
-              {subject.topics.map((t) => (
+              {subjectTopics.loading && <p className="text-sm text-muted-foreground">Loading topics…</p>}
+              {topicNames.map((t) => (
                 <label
                   key={t}
                   className={cn(

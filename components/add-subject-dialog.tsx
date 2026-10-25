@@ -1,152 +1,136 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { Check, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { cn } from "@/lib/utils"
+import { SUBJECTS, subjectsForLevel, type Level, type SubjectId } from "@/lib/data/subjects"
+import { hasAuthToken, resolveBackendSubject } from "@/lib/services/backend-subject-map"
+import { meService } from "@/lib/services/me-service"
 
 interface AddSubjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAddSubject: (subject: any) => void
-  level: "csec" | "cape"
+  level: Level
+  /** Subjects the student already has on the dashboard */
+  enrolled: SubjectId[]
+  /** Called after a subject is added */
+  onAdded: (id: SubjectId) => void
 }
 
-const SUBJECT_ICONS = ["📐", "📚", "🧪", "⚡", "🧬", "🌍", "💻", "🎨", "🎵", "⚽", "🏛️", "💼"]
+type Option = { id: SubjectId; name: string; icon: string; topicCount: number | null }
 
-const COLOR_OPTIONS = [
-  { name: "Blue", value: "from-blue-500 to-cyan-500" },
-  { name: "Purple", value: "from-purple-500 to-pink-500" },
-  { name: "Green", value: "from-green-500 to-emerald-500" },
-  { name: "Orange", value: "from-orange-500 to-red-500" },
-  { name: "Teal", value: "from-teal-500 to-green-500" },
-  { name: "Indigo", value: "from-indigo-500 to-purple-500" },
-  { name: "Rose", value: "from-rose-500 to-pink-500" },
-  { name: "Amber", value: "from-amber-500 to-orange-500" },
-]
+/**
+ * Pick from the subjects Sapphire offers for this level. Students can't type their own subject:
+ * an unknown subject would have no topics, quizzes or reels.
+ */
+export function AddSubjectDialog({ open, onOpenChange, level, enrolled, onAdded }: AddSubjectDialogProps) {
+  const [options, setOptions] = useState<Option[]>([])
+  const [loading, setLoading] = useState(false)
+  const [adding, setAdding] = useState<SubjectId | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-export function AddSubjectDialog({ open, onOpenChange, onAddSubject, level }: AddSubjectDialogProps) {
-  const [name, setName] = useState("")
-  const [selectedIcon, setSelectedIcon] = useState(SUBJECT_ICONS[0])
-  const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0].value)
-
-  const handleSubmit = () => {
-    if (!name.trim()) return
-
-    const newSubject = {
-      id: `${level}-${Date.now()}`,
-      name: name.trim(),
-      icon: selectedIcon,
-      color: selectedColor,
-      progress: 0,
-      lastStudied: "Never",
-      topics: 0,
-      type: level,
-      ...(level === "cape" && {
-        units: [
-          { unitNumber: 1, progress: 0, lastStudied: "Never", topics: 0 },
-          { unitNumber: 2, progress: 0, lastStudied: "Never", topics: 0 },
-        ],
-      }),
+  useEffect(() => {
+    if (!open) return
+    setError(null)
+    const offline: Option[] = subjectsForLevel(level).map((id) => ({
+      id,
+      name: SUBJECTS[id].name,
+      icon: SUBJECTS[id].icon,
+      topicCount: hasAuthToken() ? null : SUBJECTS[id].topics.length,
+    }))
+    if (!hasAuthToken()) {
+      setOptions(offline)
+      return
     }
+    setLoading(true)
+    meService
+      .catalog(level)
+      .then((catalog) => {
+        const byName = new Map(catalog.map((s: any) => [String(s.name).toLowerCase(), s]))
+        // Only subjects the backend actually offers, with their real topic counts.
+        setOptions(
+          offline
+            .filter((o) => byName.has(o.name.toLowerCase()))
+            .map((o) => ({ ...o, topicCount: byName.get(o.name.toLowerCase())?.topicCount ?? 0 })),
+        )
+      })
+      .catch(() => setOptions(offline))
+      .finally(() => setLoading(false))
+  }, [open, level])
 
-    onAddSubject(newSubject)
-    setName("")
-    setSelectedIcon(SUBJECT_ICONS[0])
-    setSelectedColor(COLOR_OPTIONS[0].value)
-    onOpenChange(false)
+  const add = async (id: SubjectId) => {
+    setAdding(id)
+    setError(null)
+    try {
+      if (hasAuthToken()) await resolveBackendSubject(id) // enrolls if needed
+      onAdded(id)
+      onOpenChange(false)
+    } catch (e: any) {
+      setError(e?.message || "Couldn't add that subject. Please try again.")
+    } finally {
+      setAdding(null)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="rounded-2xl sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Add New Subject</DialogTitle>
+          <DialogTitle>Add a subject</DialogTitle>
           <DialogDescription>
-            Create a new {level === "csec" ? "CSEC" : "CAPE"} subject to track your studies
+            The {level === "csec" ? "CSEC" : "CAPE"} subjects Sapphire covers right now. More are on the way.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 py-4">
-          {/* Subject Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Subject Name</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Mathematics, Physics, Chemistry"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="h-11 rounded-xl"
-            />
-          </div>
-
-          {/* Icon Selection */}
-          <div className="space-y-2">
-            <Label>Choose an Icon</Label>
-            <div className="grid grid-cols-6 gap-2">
-              {SUBJECT_ICONS.map((icon) => (
-                <button
-                  key={icon}
-                  onClick={() => setSelectedIcon(icon)}
-                  className={`aspect-square rounded-xl border-2 text-3xl flex items-center justify-center transition-all hover:scale-110 ${
-                    selectedIcon === icon
-                      ? "border-primary bg-primary/10 scale-110"
-                      : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  {icon}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Color Selection */}
-          <div className="space-y-2">
-            <Label>Choose a Color</Label>
-            <RadioGroup value={selectedColor} onValueChange={setSelectedColor} className="grid grid-cols-4 gap-2">
-              {COLOR_OPTIONS.map((color) => (
-                <div key={color.value} className="relative">
-                  <RadioGroupItem value={color.value} id={color.value} className="peer sr-only" />
-                  <Label
-                    htmlFor={color.value}
-                    className={`flex flex-col items-center justify-center rounded-xl border-2 p-3 cursor-pointer transition-all hover:scale-105 peer-data-[state=checked]:border-primary peer-data-[state=checked]:ring-2 peer-data-[state=checked]:ring-primary peer-data-[state=checked]:ring-offset-2`}
+        {loading ? (
+          <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading subjects…
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2.5">
+            {options.map((o) => {
+              const has = enrolled.includes(o.id)
+              return (
+                <li key={o.id}>
+                  <button
+                    type="button"
+                    disabled={has || !!adding}
+                    onClick={() => add(o.id)}
+                    className={cn(
+                      "flex min-h-14 w-full items-center gap-3 rounded-2xl border-2 bg-card px-4 py-3 text-left transition-colors",
+                      has ? "cursor-default border-border opacity-70" : "hover:border-primary/50",
+                    )}
                   >
-                    <div className={`w-full h-8 rounded-lg bg-gradient-to-r ${color.value} mb-2`} />
-                    <span className="text-xs font-medium">{color.name}</span>
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          {/* Preview */}
-          <div className="space-y-2">
-            <Label>Preview</Label>
-            <div className="p-4 rounded-xl border-2 bg-card">
-              <div className={`h-2 bg-gradient-to-r ${selectedColor} rounded-t-lg mb-4`} />
-              <div className="flex items-center gap-3">
-                <div className="text-4xl">{selectedIcon}</div>
-                <div>
-                  <h3 className="font-semibold text-lg">{name || "Subject Name"}</h3>
-                  <p className="text-sm text-muted-foreground">{level === "csec" ? "CSEC" : "CAPE"}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl bg-transparent">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!name.trim()}
-            className="flex-1 rounded-xl bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground"
-          >
-            Add Subject
-          </Button>
-        </div>
+                    <span className="text-2xl" aria-hidden="true">
+                      {o.icon}
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="font-semibold">{o.name}</span>
+                      {o.topicCount !== null && (
+                        <span className="text-xs text-muted-foreground">{o.topicCount} topics</span>
+                      )}
+                    </span>
+                    {has ? (
+                      <span className="flex items-center gap-1 text-xs font-medium text-status-success">
+                        <Check className="size-4" aria-hidden="true" /> Added
+                      </span>
+                    ) : adding === o.id ? (
+                      <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
+                    ) : (
+                      <span className="text-sm font-medium text-primary">Add</span>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+            {options.length === 0 && <p className="text-sm text-muted-foreground">No subjects are available for this level yet.</p>}
+          </ul>
+        )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button variant="outline" className="min-h-11 rounded-xl shadow-none" onClick={() => onOpenChange(false)}>
+          Close
+        </Button>
       </DialogContent>
     </Dialog>
   )
