@@ -4,12 +4,16 @@
 
 const PRODUCTION_API_URL = 'https://sapphire-backend-production.up.railway.app'
 
-/** Single source of truth for the backend origin. NEXT_PUBLIC_BACKEND_URL is the legacy name. */
+/**
+ * Single source of truth for the backend origin. NEXT_PUBLIC_BACKEND_URL is the legacy name.
+ * Spaces and trailing slashes or dots are trimmed: a dashboard typo like "…railway.app." names a
+ * host Railway doesn't serve (404, no CORS headers), so every request failed as a CORS error.
+ */
 export const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL?.trim() ||
+  process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
   (process.env.NODE_ENV === 'production' ? PRODUCTION_API_URL : 'http://localhost:5000')
-).replace(/\/$/, '')
+).replace(/[/.]+$/, '')
 
 export const API_CONFIG = {
   // Backend base URL from environment variable
