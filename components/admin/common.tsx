@@ -57,16 +57,19 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
   )
 }
 
-export function RoleBadge({ role }: { role: string }) {
-  const style =
-    role === "admin"
-      ? "bg-navy/10 text-navy border-navy/30"
-      : role === "teacher"
-        ? "bg-sky/30 text-primary-strong border-sky"
+/** One role label per person: Global admin (never also "Admin"), Admin, Teacher or Student. */
+export function RoleBadge({ user, className }: { user: { accountType: string; isSuperAdmin?: boolean }; className?: string }) {
+  const global = user.isSuperAdmin === true
+  const style = global
+    ? "border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400"
+    : user.accountType === "admin"
+      ? "bg-purple-500/15 text-purple-600 border-purple-500/30 dark:text-purple-400"
+      : user.accountType === "teacher"
+        ? "bg-teal-500/15 text-teal-600 border-teal-500/30 dark:text-teal-400"
         : ""
   return (
-    <Badge variant="outline" className={cn("capitalize", style)}>
-      {role}
+    <Badge variant="outline" className={cn("capitalize", style, className)}>
+      {global ? "Global admin" : user.accountType}
     </Badge>
   )
 }

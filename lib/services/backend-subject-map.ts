@@ -19,9 +19,11 @@ export type BackendTopic = {
   id: number;
   name: string;
   subjectId?: number;
+  /** Real CXC syllabus structure; null for legacy topics (flat list) */
   moduleNumber?: number | null;
   moduleTitle?: string | null;
   order?: number;
+  isArchived?: boolean;
 };
 
 const api = new ApiClient();

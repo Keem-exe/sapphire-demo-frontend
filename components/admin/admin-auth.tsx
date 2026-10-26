@@ -9,6 +9,8 @@ interface AdminAuth {
   ready: boolean
   /** Set when a valid non-admin account tried to sign in */
   denied: boolean
+  /** True only for a global admin; a missing flag from an older backend counts as false */
+  isGlobalAdmin: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   clearDenied: () => void
@@ -63,7 +65,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <Ctx.Provider value={{ user, ready, denied, login, logout, clearDenied: () => setDenied(false) }}>
+    <Ctx.Provider value={{ user, ready, denied, isGlobalAdmin: user?.isSuperAdmin === true, login, logout, clearDenied: () => setDenied(false) }}>
       {children}
     </Ctx.Provider>
   )

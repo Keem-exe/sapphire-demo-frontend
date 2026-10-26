@@ -35,6 +35,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Sapphy } from "@/components/sapphy"
 import { cn } from "@/lib/utils"
 import { meService, taskRoute, type SubjectOverview } from "@/lib/services/me-service"
+import { SyllabusNotice } from "@/components/workspace/syllabus-notice"
+import type { SubjectId } from "@/lib/data/subjects"
 
 type ItemId = "notebook" | "sapphy" | "flashcards" | "quiz" | "reels" | "assign" | "resources" | "syllabus"
 type Place = "left" | "right" | "off"
@@ -441,6 +443,10 @@ export function WorkspaceShell({
 
   const overview = (
     <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-[22px] px-7 pb-12 pt-7">
+      {/* One-time heads-up for subjects moved onto the official CXC syllabus */}
+      <div className="overflow-hidden rounded-xl border empty:hidden">
+        <SyllabusNotice subjectId={subjectId as SubjectId} />
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Subject overview</p>

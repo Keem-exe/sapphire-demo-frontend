@@ -75,7 +75,7 @@ export default function UsersPage() {
                 <TableRow key={u.id}>
                   <TableCell><Link href={`/admin/users/${u.id}`} className="font-medium hover:underline">{fullName(u)}</Link></TableCell>
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                  <TableCell><RoleBadge role={u.accountType} /></TableCell>
+                  <TableCell><RoleBadge user={u} /></TableCell>
                   <TableCell><StatusBadge suspended={u.isSuspended} /></TableCell>
                   <TableCell>{u.age ?? "—"}</TableCell>
                   <TableCell>{fmtDay(u.createdAt)}</TableCell>

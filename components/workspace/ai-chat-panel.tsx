@@ -379,15 +379,21 @@ const SAMPLE_CHIPS = ["Give me one to try", "Make flashcards from this", "Add to
 export function AiChatPanel({ subjectName, sampleThread = false }: AiChatPanelProps) {
   const seeded = sampleThread && !hasAuthToken()
   const [message, setMessage] = useState("")
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; eventId?: number | string }[]>(seeded ? SAMPLE_THREAD : [
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; eventId?: number | string; isError?: boolean }[]>(seeded ? SAMPLE_THREAD : [
     {
       role: "assistant",
       content: `## Welcome! I'm Sapphy 👋\n\nI'm your AI study companion for **${subjectName || "this subject"}**.\n\nAsk me anything — worked examples, concept breakdowns, exam technique, or practice questions. I'm here to make this click.`,
     },
   ])
   const [loading, setLoading] = useState(false)
+  // Messages before this index belong to an earlier problem and are not sent as history
+  const [contextStart, setContextStart] = useState(1)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const messageCount = useRef(1)
+  messageCount.current = messages.length
+  // A different subject is a different conversation: stop sending earlier turns
+  useEffect(() => { setContextStart(messageCount.current) }, [subjectName])
   const starterChips = seeded ? SAMPLE_CHIPS : getStarterChips(subjectName)
   const showChips = messages.length === (seeded ? SAMPLE_THREAD.length : 1)
 
@@ -422,9 +428,16 @@ export function AiChatPanel({ subjectName, sampleThread = false }: AiChatPanelPr
         if (!subjectKey) throw new Error("Subject not found for chat.")
 
         const backendSubject = await resolveBackendSubject(subjectKey)
+        // Backend accepts at most the last 20 turns of 1-2000 chars; tutor turns are the exact API replies
+        const history = messages
+          .slice(contextStart)
+          .filter((m) => !m.isError)
+          .slice(-20)
+          .map((m) => ({ role: m.role === "user" ? "student" : "tutor", text: m.content.slice(0, 2000) }))
         const response: any = await apiClient.post("/api/ai/chat", {
           subjectId: backendSubject.subjectId,
           message: cleanedMessage,
+          ...(history.length > 0 ? { history } : {}),
         })
 
         const data = response?.data || response
@@ -451,7 +464,7 @@ export function AiChatPanel({ subjectName, sampleThread = false }: AiChatPanelPr
       console.error("Chat error:", e)
       setMessages(m => [
         ...m,
-        { role: "assistant", content: `**Oops, something went wrong.**\n\n${e.message || "Failed to connect to Sapphire. Please try again."}` },
+        { role: "assistant", content: `**Oops, something went wrong.**\n\n${e.message || "Failed to connect to Sapphire. Please try again."}`, isError: true },
       ])
     } finally {
       setLoading(false)
@@ -475,6 +488,16 @@ export function AiChatPanel({ subjectName, sampleThread = false }: AiChatPanelPr
           <p className="text-[10px] text-muted-foreground truncate">Sees what you're working on</p>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
+          {messages.length > contextStart && (
+            <button
+              type="button"
+              onClick={() => setContextStart(messages.length)}
+              className="mr-1 rounded-md border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted"
+              title="Start a new problem: the coach forgets the conversation so far"
+            >
+              New problem
+            </button>
+          )}
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
           <span className="text-[10px] text-muted-foreground">Online</span>
         </div>

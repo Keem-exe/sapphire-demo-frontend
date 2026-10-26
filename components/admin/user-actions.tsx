@@ -22,6 +22,12 @@ type Kind = "edit" | "suspend" | "role" | "reset" | "delete"
 /** Row actions for one user: dropdown ("menu") or button strip ("buttons"). Owns its dialogs. */
 export function UserActions({ user, variant = "menu", onDeleted }: { user: AdminUser; variant?: "menu" | "buttons"; onDeleted?: () => void }) {
   const router = useRouter()
+  const { isGlobalAdmin } = useAdmin()
+  // A global admin is untouchable; only a global admin may manage other admins (the API enforces both with 403).
+  const globalLocked = user.isSuperAdmin === true
+  const adminLocked = !globalLocked && user.accountType === "admin" && !isGlobalAdmin
+  const lockHint = globalLocked ? "Global admin account" : adminLocked ? "Only a global admin can manage admin accounts" : undefined
+  const manageLocked = globalLocked || adminLocked
   const [kind, setKind] = useState<Kind | null>(null)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const close = (o: boolean) => !o && setKind(null)
@@ -38,21 +44,21 @@ export function UserActions({ user, variant = "menu", onDeleted }: { user: Admin
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => router.push(`/admin/users/${user.id}`)}>View details</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setKind("edit")}>Edit details</DropdownMenuItem>
-            <DropdownMenuItem onSelect={toggleSuspend}>{suspendLabel}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setKind("role")}>Change role</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setKind("reset")}>Reset password</DropdownMenuItem>
+            <DropdownMenuItem disabled={manageLocked} title={lockHint} onSelect={() => setKind("edit")}>Edit details</DropdownMenuItem>
+            <DropdownMenuItem disabled={manageLocked} title={lockHint} onSelect={toggleSuspend}>{suspendLabel}</DropdownMenuItem>
+            <DropdownMenuItem disabled={manageLocked} title={lockHint} onSelect={() => setKind("role")}>Change role</DropdownMenuItem>
+            <DropdownMenuItem disabled={manageLocked} title={lockHint} onSelect={() => setKind("reset")}>Reset password</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => setKind("delete")}>Delete account</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" disabled={globalLocked} title={globalLocked ? lockHint : undefined} onSelect={() => setKind("delete")}>Delete account</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => setKind("edit")}>Edit</Button>
-          <Button variant="outline" size="sm" onClick={toggleSuspend}>{suspendLabel}</Button>
-          <Button variant="outline" size="sm" onClick={() => setKind("role")}>Change role</Button>
-          <Button variant="outline" size="sm" onClick={() => setKind("reset")}>Reset password</Button>
-          <Button variant="destructive" size="sm" onClick={() => setKind("delete")}>Delete</Button>
+          <Button variant="outline" size="sm" disabled={manageLocked} title={lockHint} onClick={() => setKind("edit")}>Edit</Button>
+          <Button variant="outline" size="sm" disabled={manageLocked} title={lockHint} onClick={toggleSuspend}>{suspendLabel}</Button>
+          <Button variant="outline" size="sm" disabled={manageLocked} title={lockHint} onClick={() => setKind("role")}>Change role</Button>
+          <Button variant="outline" size="sm" disabled={manageLocked} title={lockHint} onClick={() => setKind("reset")}>Reset password</Button>
+          <Button variant="destructive" size="sm" disabled={globalLocked} title={globalLocked ? lockHint : undefined} onClick={() => setKind("delete")}>Delete</Button>
         </div>
       )}
 
@@ -117,7 +123,7 @@ function SuspendDialog({ user, onOpenChange }: { user: AdminUser; onOpenChange: 
 }
 
 function RoleDialog({ user, onOpenChange }: { user: AdminUser; onOpenChange: (o: boolean) => void }) {
-  const { user: me } = useAdmin()
+  const { user: me, isGlobalAdmin } = useAdmin()
   const [role, setRole] = useState<AccountType>(user.accountType)
   const isSelf = me?.id === user.id
   return (
@@ -127,7 +133,7 @@ function RoleDialog({ user, onOpenChange }: { user: AdminUser; onOpenChange: (o:
         <Select value={role} onValueChange={(v) => setRole(v as AccountType)}>
           <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {(["student", "teacher", "admin"] as AccountType[]).map((r) => (
+            {(["student", "teacher", "admin"] as AccountType[]).filter((r) => r !== "admin" || isGlobalAdmin).map((r) => (
               <SelectItem key={r} value={r} disabled={isSelf && r !== "admin"} className="capitalize">{r}</SelectItem>
             ))}
           </SelectContent>

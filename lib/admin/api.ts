@@ -99,7 +99,9 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v))
   })
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  // FormData must go out without a Content-Type so the browser adds the multipart boundary.
+  const isForm = typeof FormData !== "undefined" && opts.body instanceof FormData
+  const headers: Record<string, string> = isForm ? {} : { "Content-Type": "application/json" }
   const token = opts.bearer ?? (opts.auth === false ? null : store.get(ADMIN_KEYS.token))
   if (token) headers.Authorization = `Bearer ${token}`
 
@@ -108,7 +110,7 @@ async function request<T>(method: string, path: string, opts: RequestOptions = {
     res = await fetch(url.toString(), {
       method,
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: opts.body === undefined ? undefined : isForm ? (opts.body as FormData) : JSON.stringify(opts.body),
     })
   } catch {
     throw new AdminApiError(`Cannot reach the backend at ${BASE}.`, 0)

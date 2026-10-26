@@ -36,7 +36,7 @@ export default function UserDetailPage() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold">{fullName(u)}</h1>
-                  <RoleBadge role={u.accountType} />
+                  <RoleBadge user={u} />
                   <StatusBadge suspended={u.isSuspended} />
                 </div>
                 <p className="text-muted-foreground">{u.email}</p>

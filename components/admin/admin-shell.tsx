@@ -6,8 +6,11 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { Toaster } from "sonner"
 import {
+  ArrowLeft,
   BookOpen,
   Brain,
+  ClipboardCheck,
+  MessagesSquare,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -15,6 +18,7 @@ import {
   Settings as SettingsIcon,
   ShieldAlert,
   ShieldCheck,
+  Upload,
   Users,
   Video,
 } from "lucide-react"
@@ -24,12 +28,16 @@ import { cn } from "@/lib/utils"
 import { useApi } from "@/lib/admin/use-api"
 import type { Setting } from "@/lib/admin/types"
 import { AdminAuthProvider, useAdmin } from "./admin-auth"
-import { ErrorNote, FormField, fullName } from "./common"
+import { openStudentApp } from "@/lib/admin/student-app"
+import { ErrorNote, FormField, RoleBadge, fullName } from "./common"
 
 const NAV = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/curriculum", label: "Curriculum", icon: BookOpen },
+  { href: "/admin/questions", label: "Question Bank", icon: ClipboardCheck },
+  { href: "/admin/dialogues", label: "Dialogues", icon: MessagesSquare },
+  { href: "/admin/upload", label: "Upload Material", icon: Upload },
   { href: "/admin/reels", label: "Reels", icon: Video },
   { href: "/admin/moderation", label: "Content Moderation", icon: ShieldAlert },
   { href: "/admin/intelligence", label: "Intelligence", icon: Brain },
@@ -129,6 +137,11 @@ function Frame({ children }: { children: React.ReactNode }) {
           <Image src="/sapphire-logo.png" alt="Sapphire OS" width={83} height={28} className="h-7 w-auto" />
           <span className="font-semibold">Admin</span>
         </div>
+        <div className="px-3 pb-2">
+          <Button variant="outline" size="sm" className="w-full justify-start" onClick={openStudentApp}>
+            <ArrowLeft className="size-4" /> Student dashboard
+          </Button>
+        </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-visible md:pb-0">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = href === "/admin" ? pathname === href : pathname.startsWith(href)
@@ -148,7 +161,10 @@ function Frame({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="hidden items-center justify-between gap-2 border-t p-3 md:flex">
           <div className="min-w-0 text-xs">
-            <p className="truncate font-medium">{fullName(user!)}</p>
+            <p className="flex items-center gap-1.5 font-medium">
+              <span className="truncate">{fullName(user!)}</span>
+              <RoleBadge user={user!} className="shrink-0 px-1.5 py-0 text-[10px]" />
+            </p>
             <p className="truncate text-muted-foreground">{user!.email}</p>
           </div>
           <Button variant="ghost" size="icon" aria-label="Sign out" onClick={logout}>
@@ -165,6 +181,7 @@ function Frame({ children }: { children: React.ReactNode }) {
         <main className="mx-auto max-w-7xl p-4 md:p-8">{children}</main>
         <div className="border-t p-3 md:hidden">
           <Button variant="outline" size="sm" onClick={logout}><LogOut className="size-4" /> Sign out ({user!.email})</Button>
+          <RoleBadge user={user!} className="ml-2" />
         </div>
       </div>
     </div>
